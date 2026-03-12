@@ -115,7 +115,9 @@ Sub StartInstall()
 
     WritePSScript installDir, ghToken
 
-    oShell.ShellExecute "powershell.exe", _
+    Dim oShellApp
+    Set oShellApp = CreateObject("Shell.Application")
+    oShellApp.ShellExecute "powershell.exe", _
         "-ExecutionPolicy Bypass -NonInteractive -WindowStyle Hidden -File """ & g_psFile & """", _
         "", "runas", 1
 
