@@ -164,8 +164,8 @@ Sub WritePSScript(installDir, ghToken)
     f.WriteLine "$logFile    = " & Q & Replace(g_logFile,  "'", "''") & Q
     f.WriteLine "$ghToken    = " & Q & Replace(ghToken,    "'", "''") & Q
     f.WriteLine "$zipUrl     = 'https://github.com/xopromo/binance-collector/archive/refs/heads/main.zip'"
-    f.WriteLine "$zipPath    = Join-Path $env:TEMP 'binance-collector.zip'"
-    f.WriteLine "$extDir     = Join-Path $env:TEMP 'binance_extract'"
+    f.WriteLine "$zipPath    = Join-Path $installDir 'setup.zip'"
+    f.WriteLine "$extDir     = Join-Path $installDir 'setup_extract'"
     f.WriteLine ""
     f.WriteLine "function Log($msg) {"
     f.WriteLine "    $ts = Get-Date -Format 'HH:mm:ss'"
