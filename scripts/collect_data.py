@@ -19,7 +19,7 @@ DATA_PATH = Path("data")
 COINGECKO = "https://api.coingecko.com/api/v3"
 
 # Пауза между запросами (бесплатный тариф CoinGecko — 30 запросов/мин)
-REQUEST_DELAY = 2.5
+REQUEST_DELAY = 4.0  # CoinGecko free: 30 req/min → 2s min, 4s safe
 
 
 def load_config() -> dict:
@@ -94,13 +94,13 @@ def collect_tickers(coins: list):
 
 def collect_ohlcv(coin_id: str, symbol: str):
     """
-    Запрашивает почасовые OHLCV свечи за последние 2 дня.
-    CoinGecko при days=2 возвращает hourly-данные.
+    Запрашивает OHLCV свечи за последние сутки.
+    CoinGecko при days=1 возвращает 30-минутные свечи (48 штук).
     """
     try:
         data = get(f"{COINGECKO}/coins/{coin_id}/ohlc", {
             "vs_currency": "usd",
-            "days": "2",
+            "days": "1",
         })
         rows = []
         for k in data:
@@ -114,10 +114,10 @@ def collect_ohlcv(coin_id: str, symbol: str):
             })
         if rows:
             append_csv(
-                DATA_PATH / "ohlcv" / "1h" / f"{symbol}.csv",
+                DATA_PATH / "ohlcv" / "30m" / f"{symbol}.csv",
                 pd.DataFrame(rows)
             )
-            print(f"  [OK] ohlcv {symbol} 1h: {len(rows)} candles")
+            print(f"  [OK] ohlcv {symbol} 30m: {len(rows)} candles")
         time.sleep(REQUEST_DELAY)
     except Exception as e:
         print(f"  [ERR] ohlcv {symbol}: {e}")
