@@ -31,7 +31,7 @@ def compute_rsi(series: pd.Series, period: int = 14) -> pd.Series:
     return 100 - 100 / (1 + rs)
 
 
-def load_csv(path: Path) -> pd.DataFrame | None:
+def load_csv(path: Path):
     if not path.exists():
         return None
     try:
