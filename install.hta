@@ -1,6 +1,7 @@
 <html>
 <head>
-<title>Binance Screener — Installer</title>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>Binance Screener - Installer</title>
 <HTA:APPLICATION
     APPLICATIONNAME="BinanceScreenerInstaller"
     BORDER="dialog"
@@ -43,7 +44,6 @@ input[type=text] {
     font-size: 14px;
     font-weight: bold;
     cursor: pointer;
-    letter-spacing: 0.3px;
 }
 #btnInstall:disabled { background: #21262d; color: #484f58; cursor: default; }
 #log {
@@ -53,7 +53,7 @@ input[type=text] {
     background: #010409;
     border: 1px solid #30363d;
     color: #7ee787;
-    font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
     font-size: 11px;
     padding: 10px;
     border-radius: 6px;
@@ -66,22 +66,22 @@ input[type=text] {
 </head>
 <body>
 
-<h1>&#128200; Binance Screener — Installer</h1>
-<p class="sub">Автоматически скачает проект, установит зависимости и запустит скринер.</p>
+<h1>&#128200; Binance Screener - Installer</h1>
+<p class="sub">Downloads project, installs dependencies and launches the screener automatically.</p>
 
-<p class="warn">&#9888; VPN должен быть включён (Нидерланды / Германия / Сингапур)</p>
+<p class="warn">&#9888; VPN must be ON (Netherlands / Germany / Singapore)</p>
 
-<label>Папка установки:</label>
+<label>Install folder:</label>
 <input type="text" id="installDir" value="C:\BinanceScreener">
 
-<label>GitHub Token <span style="color:#484f58">(необязательно — для сохранения данных в облако)</span>:</label>
+<label>GitHub Token <span style="color:#484f58">(optional - to save data to cloud)</span>:</label>
 <input type="text" id="ghToken" placeholder="ghp_...">
-<p class="note">Токен можно найти на github.com/settings/tokens (scope: repo)</p>
+<p class="note">Get token at: github.com/settings/tokens (scope: repo)</p>
 
-<button id="btnInstall" onclick="StartInstall()">&#9654; Установить и запустить</button>
+<button id="btnInstall" onclick="StartInstall()">&#9654; Install and Launch</button>
 
 <textarea id="log" readonly></textarea>
-<p id="statusNote">Готов к установке.</p>
+<p id="statusNote">Ready to install.</p>
 
 <script language="VBScript">
 Option Explicit
@@ -96,27 +96,25 @@ g_done     = False
 window.resizeTo 620, 720
 window.moveTo (screen.availWidth  - 620) \ 2, (screen.availHeight - 720) \ 2
 
-' ── Entry point ───────────────────────────────────────────────────────────────
 Sub StartInstall()
     Dim installDir, ghToken
     installDir = Trim(document.getElementById("installDir").value)
     ghToken    = Trim(document.getElementById("ghToken").value)
 
     If installDir = "" Then
-        MsgBox "Укажите папку установки.", 48, "Ошибка"
+        MsgBox "Please enter install folder.", 48, "Error"
         Exit Sub
     End If
 
     document.getElementById("btnInstall").disabled = True
     document.getElementById("log").value = ""
-    document.getElementById("statusNote").innerText = "Идёт установка..."
+    document.getElementById("statusNote").innerText = "Installing..."
     g_done = False
 
     If oFSO.FileExists(g_logFile) Then oFSO.DeleteFile g_logFile
 
     WritePSScript installDir, ghToken
 
-    ' Run PowerShell elevated (UAC prompt)
     oShell.ShellExecute "powershell.exe", _
         "-ExecutionPolicy Bypass -NonInteractive -WindowStyle Hidden -File """ & g_psFile & """", _
         "", "runas", 1
@@ -124,7 +122,6 @@ Sub StartInstall()
     window.setInterval "PollLog()", 600
 End Sub
 
-' ── Poll log file every 600 ms ────────────────────────────────────────────────
 Sub PollLog()
     If Not oFSO.FileExists(g_logFile) Then Exit Sub
 
@@ -143,26 +140,23 @@ Sub PollLog()
 
     If InStr(content, "##DONE##") > 0 And Not g_done Then
         g_done = True
-        document.getElementById("statusNote").innerText = _
-            "Готово! Браузер открылся на http://localhost:8501"
+        document.getElementById("statusNote").innerText = "Done! Browser opened at http://localhost:8501"
         document.getElementById("btnInstall").disabled  = False
-        document.getElementById("btnInstall").innerText = "Перезапустить скринер"
+        document.getElementById("btnInstall").innerText = "Launch Screener Again"
     End If
 
     If InStr(content, "##ERROR##") > 0 And Not g_done Then
         g_done = True
-        document.getElementById("statusNote").innerText = "Ошибка. Проверьте лог выше."
+        document.getElementById("statusNote").innerText = "Error during install. Check log above."
         document.getElementById("btnInstall").disabled  = False
     End If
 End Sub
 
-' ── Build and write the PowerShell installation script ────────────────────────
 Sub WritePSScript(installDir, ghToken)
     Dim f
     Set f = oFSO.CreateTextFile(g_psFile, True, False)
 
-    Dim Q : Q = Chr(39)   ' single quote  — used in PS string literals
-    Dim D : D = Chr(34)   ' double quote
+    Dim Q : Q = Chr(39)
 
     f.WriteLine "$installDir = " & Q & Replace(installDir, "'", "''") & Q
     f.WriteLine "$logFile    = " & Q & Replace(g_logFile,  "'", "''") & Q
@@ -178,26 +172,23 @@ Sub WritePSScript(installDir, ghToken)
     f.WriteLine ""
     f.WriteLine "try {"
     f.WriteLine ""
-    f.WriteLine "# ── Step 1: Create install folder ─────────────────────────────"
     f.WriteLine "Log 'Step 1/6  Creating install folder...'"
     f.WriteLine "New-Item -ItemType Directory -Path $installDir -Force | Out-Null"
     f.WriteLine "Log ""  -> $installDir"""
     f.WriteLine ""
-    f.WriteLine "# ── Step 2: Download ──────────────────────────────────────────"
     f.WriteLine "Log 'Step 2/6  Downloading project from GitHub...'"
-    f.WriteLine "Log '          (If this hangs - check VPN!)'"
+    f.WriteLine "Log '          (If stuck - check VPN is ON)'"
     f.WriteLine "try {"
     f.WriteLine "    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12"
     f.WriteLine "    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing"
     f.WriteLine "    Log '  -> Downloaded OK'"
     f.WriteLine "} catch {"
     f.WriteLine "    Log ""  -> ERROR: $_"""
-    f.WriteLine "    Log '  -> Make sure VPN (Netherlands/Germany) is connected!'"
+    f.WriteLine "    Log '  -> Check VPN (Netherlands/Germany)!'"
     f.WriteLine "    Add-Content -Path $logFile -Value '##ERROR##' -Encoding UTF8"
     f.WriteLine "    exit 1"
     f.WriteLine "}"
     f.WriteLine ""
-    f.WriteLine "# ── Step 3: Extract ───────────────────────────────────────────"
     f.WriteLine "Log 'Step 3/6  Extracting...'"
     f.WriteLine "if (Test-Path $extDir) { Remove-Item $extDir -Recurse -Force }"
     f.WriteLine "Expand-Archive -Path $zipPath -DestinationPath $extDir -Force"
@@ -207,7 +198,6 @@ Sub WritePSScript(installDir, ghToken)
     f.WriteLine "Remove-Item $zipPath -Force"
     f.WriteLine "Log '  -> Extracted OK'"
     f.WriteLine ""
-    f.WriteLine "# ── Step 4: Python ────────────────────────────────────────────"
     f.WriteLine "Log 'Step 4/6  Checking Python...'"
     f.WriteLine "$python = $null"
     f.WriteLine "foreach ($cmd in @('python','python3','py')) {"
@@ -217,29 +207,25 @@ Sub WritePSScript(installDir, ghToken)
     f.WriteLine "    } catch {}"
     f.WriteLine "}"
     f.WriteLine "if ($null -eq $python) {"
-    f.WriteLine "    Log '  -> Python not found. Downloading installer...'"
+    f.WriteLine "    Log '  -> Python not found. Downloading 3.11...'"
     f.WriteLine "    $pyInst = Join-Path $env:TEMP 'python_installer.exe'"
     f.WriteLine "    Invoke-WebRequest 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile $pyInst -UseBasicParsing"
-    f.WriteLine "    Log '  -> Installing Python 3.11 (silent)...'"
     f.WriteLine "    Start-Process $pyInst -ArgumentList '/quiet InstallAllUsers=0 PrependPath=1' -Wait"
     f.WriteLine "    $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH','User') + ';' + $env:PATH"
     f.WriteLine "    $python = 'python'"
     f.WriteLine "    Log '  -> Python 3.11 installed OK'"
     f.WriteLine "}"
     f.WriteLine ""
-    f.WriteLine "# ── GitHub token ──────────────────────────────────────────────"
     f.WriteLine "if ($ghToken -ne '') {"
     f.WriteLine "    Set-Content -Path (Join-Path $installDir 'github_token.txt') -Value $ghToken -NoNewline"
     f.WriteLine "    Log '  -> GitHub token saved'"
     f.WriteLine "}"
     f.WriteLine ""
-    f.WriteLine "# ── Step 5: pip install ───────────────────────────────────────"
-    f.WriteLine "Log 'Step 5/6  Installing Python packages (may take 1-2 min)...'"
+    f.WriteLine "Log 'Step 5/6  Installing Python packages (1-2 min)...'"
     f.WriteLine "$req = Join-Path $installDir 'scripts\requirements.txt'"
     f.WriteLine "& $python -m pip install -r $req --quiet 2>&1 | Out-Null"
     f.WriteLine "Log '  -> Packages installed OK'"
     f.WriteLine ""
-    f.WriteLine "# ── Step 6: Scheduled tasks ───────────────────────────────────"
     f.WriteLine "Log 'Step 6/6  Creating scheduled tasks...'"
     f.WriteLine "$cbat = Join-Path $installDir 'run_collect.bat'"
     f.WriteLine "$pbat = Join-Path $installDir 'run_push.bat'"
@@ -247,14 +233,12 @@ Sub WritePSScript(installDir, ghToken)
     f.WriteLine "schtasks /delete /tn 'BinanceGithubPush' /f 2>$null | Out-Null"
     f.WriteLine "schtasks /create /tn 'BinanceCollector'  /tr ""cmd /c $cbat"" /sc minute /mo 5  /st 00:00 /ru $env:USERNAME /f | Out-Null"
     f.WriteLine "schtasks /create /tn 'BinanceGithubPush' /tr ""cmd /c $pbat"" /sc hourly        /st 00:30 /ru $env:USERNAME /f | Out-Null"
-    f.WriteLine "Log '  -> Tasks created: collect every 5 min, push every hour'"
+    f.WriteLine "Log '  -> collect every 5 min, push every hour'"
     f.WriteLine ""
-    f.WriteLine "# ── First data collection ─────────────────────────────────────"
     f.WriteLine "Log ''"
     f.WriteLine "Log 'Running first data collection...'"
     f.WriteLine "& $python (Join-Path $installDir 'scripts\collect_data.py') 2>&1 | ForEach-Object { Log $_ }"
     f.WriteLine ""
-    f.WriteLine "# ── Launch screener ───────────────────────────────────────────"
     f.WriteLine "Log ''"
     f.WriteLine "Log 'Starting screener...'"
     f.WriteLine "$scrScript = Join-Path $installDir 'scripts\screener.py'"
@@ -263,11 +247,9 @@ Sub WritePSScript(installDir, ghToken)
     f.WriteLine "Start-Process 'http://localhost:8501'"
     f.WriteLine ""
     f.WriteLine "Log ''"
-    f.WriteLine "Log '========================================'"
-    f.WriteLine "Log '  All done!'"
-    f.WriteLine "Log '  Screener -> http://localhost:8501'"
-    f.WriteLine "Log '  Data collected every 5 min automatically.'"
-    f.WriteLine "Log '========================================'"
+    f.WriteLine "Log '=== Installation complete! ==='"
+    f.WriteLine "Log 'Screener: http://localhost:8501'"
+    f.WriteLine "Log 'Data is collected every 5 min automatically.'"
     f.WriteLine "Add-Content -Path $logFile -Value '##DONE##' -Encoding UTF8"
     f.WriteLine ""
     f.WriteLine "} catch {"
