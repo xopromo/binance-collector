@@ -8,148 +8,166 @@
     CAPTION="yes"
     MAXIMIZEBUTTON="yes"
     MINIMIZEBUTTON="yes"
-    SCROLL="auto"
+    SCROLL="no"
     SINGLEINSTANCE="no"
     WINDOWSTATE="maximize"
 />
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
 
 body {
     font-family: 'Segoe UI', Tahoma, sans-serif;
     background: #0d1117;
     color: #e6edf3;
     font-size: 13px;
+    display: flex;
+    flex-direction: column;
 }
 
-/* ── Top bar ──────────────────────────────────────────────────────────── */
+/* ── Top bar ─────────────────────────────────────── */
 #topbar {
     background: #161b22;
     border-bottom: 1px solid #30363d;
-    padding: 10px 20px;
+    padding: 0 16px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+}
+#topbar h1  { color: #58a6ff; font-size: 16px; font-weight: 600; flex: 1; }
+.t-meta     { color: #8b949e; font-size: 12px; white-space: nowrap; }
+#fng        { font-size: 12px; font-weight: bold; white-space: nowrap; }
+.t-cd       { color: #484f58; font-size: 11px; white-space: nowrap; }
+
+#btnRef {
+    background: #21262d; border: 1px solid #30363d;
+    color: #e6edf3; padding: 4px 12px; border-radius: 5px;
+    cursor: pointer; font-size: 12px;
+}
+#btnRef:hover { background: #30363d; }
+
+/* ── Filters ─────────────────────────────────────── */
+#filters {
+    background: #0d1117;
+    border-bottom: 1px solid #21262d;
+    padding: 0 16px;
+    height: 36px;
     display: flex;
     align-items: center;
     gap: 16px;
-    position: fixed;
-    top: 0; left: 0; right: 0;
-    z-index: 100;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
 }
-#topbar h1 { color: #58a6ff; font-size: 17px; flex: 1; }
-.meta      { color: #8b949e; font-size: 12px; white-space: nowrap; }
-.countdown { color: #484f58; font-size: 12px; white-space: nowrap; }
-
-#btnRefresh {
-    background: #21262d;
-    border: 1px solid #30363d;
-    color: #e6edf3;
-    padding: 5px 14px;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 12px;
-}
-#btnRefresh:hover { background: #30363d; }
-
-/* ── Filters ──────────────────────────────────────────────────────────── */
-#filters {
-    background: #161b22;
-    border-bottom: 1px solid #21262d;
-    padding: 8px 20px;
-    display: flex;
-    align-items: center;
-    gap: 18px;
-    flex-wrap: wrap;
-    position: fixed;
-    top: 41px; left: 0; right: 0;
-    z-index: 99;
-}
-.fg       { display: flex; align-items: center; gap: 6px; }
-.fg label { color: #8b949e; font-size: 12px; white-space: nowrap; }
-.fg input[type=checkbox] { cursor: pointer; width: 14px; height: 14px; }
+.fg       { display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.fg label { color: #8b949e; font-size: 11px; }
+.fg input[type=checkbox] { cursor: pointer; }
 .fg input[type=number] {
-    width: 56px;
-    background: #0d1117;
-    border: 1px solid #30363d;
-    color: #e6edf3;
-    padding: 3px 6px;
-    border-radius: 4px;
-    font-size: 12px;
+    width: 52px; background: #161b22;
+    border: 1px solid #30363d; color: #e6edf3;
+    padding: 2px 5px; border-radius: 4px; font-size: 12px;
 }
-.fg span { color: #484f58; }
+.sep { color: #30363d; }
 
-/* ── Main content ─────────────────────────────────────────────────────── */
-#main {
-    padding: 20px;
-    margin-top: 82px; /* topbar + filters */
-}
-
-/* ── Signal cards ─────────────────────────────────────────────────────── */
-.sec-head {
-    font-size: 13px;
-    font-weight: 600;
-    margin-bottom: 10px;
-    color: #e6edf3;
-}
-#signals-grid {
+/* ── Tabs ────────────────────────────────────────── */
+#tabs {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 0 16px;
+    height: 34px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 4px;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
 }
+.tab {
+    background: transparent; border: none; border-bottom: 2px solid transparent;
+    color: #8b949e; padding: 0 14px; height: 32px;
+    cursor: pointer; font-size: 13px; font-family: 'Segoe UI', sans-serif;
+}
+.tab:hover  { color: #e6edf3; }
+.tab.active { color: #e6edf3; border-bottom-color: #f0883e; font-weight: 600; }
+
+/* ── Content area ────────────────────────────────── */
+#content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 16px;
+}
+
+/* ── Signal cards ────────────────────────────────── */
+#sig-grid { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
 .scard {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 10px 14px;
-    min-width: 160px;
+    background: #161b22; border: 1px solid #30363d;
+    border-radius: 8px; padding: 9px 13px; min-width: 155px;
 }
-.scard-sym   { font-weight: bold; font-size: 14px; color: #58a6ff; }
-.scard-meta  { color: #8b949e; font-size: 11px; margin-top: 2px; }
-.scard-tags  { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 3px; }
+.scard-sym  { font-weight: 700; font-size: 14px; color: #58a6ff; }
+.scard-meta { color: #8b949e; font-size: 11px; margin-top: 2px; }
+.scard-tags { margin-top: 5px; display: flex; flex-wrap: wrap; gap: 2px; }
 
-#no-signals { color: #484f58; font-style: italic; font-size: 12px; padding: 6px 0; }
+.sec-hd { font-size: 12px; font-weight: 600; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .05em; }
+#no-sig { color: #484f58; font-size: 12px; font-style: italic; padding: 4px 0; }
 
-/* ── Table ────────────────────────────────────────────────────────────── */
-#tbl-wrap { overflow-x: auto; }
-table    { width: 100%; border-collapse: collapse; font-size: 13px; }
+/* ── Table ───────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; }
 th {
-    background: #161b22;
-    color: #8b949e;
-    padding: 8px 12px;
-    text-align: left;
+    background: #161b22; color: #8b949e;
+    padding: 7px 10px; text-align: left;
     border-bottom: 2px solid #30363d;
-    font-weight: 500;
-    font-size: 12px;
-    cursor: pointer;
-    white-space: nowrap;
-    user-select: none;
+    font-weight: 500; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .05em; cursor: pointer; white-space: nowrap;
+    position: sticky; top: 0; z-index: 10;
 }
 th:hover    { color: #e6edf3; }
-td          { padding: 7px 12px; border-bottom: 1px solid #21262d; white-space: nowrap; }
+td          { padding: 6px 10px; border-bottom: 1px solid #161b22; white-space: nowrap; }
 tr:hover td { background: #161b22; }
 
-/* ── Value colours ────────────────────────────────────────────────────── */
-.up   { color: #3fb950; }
-.dn   { color: #f85149; }
-.neu  { color: #8b949e; }
-.sym  { color: #58a6ff; font-weight: bold; }
-
-/* ── Signal tags ──────────────────────────────────────────────────────── */
-.tag {
-    display: inline-block;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: bold;
-    margin: 1px;
-}
+/* ── Tags ────────────────────────────────────────── */
+.tag { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; margin: 1px; }
 .tag-pump { background: #1b5e20; color: #69f0ae; }
 .tag-dump { background: #7f0000; color: #ff8a80; }
 .tag-ob   { background: #bf360c; color: #ffccbc; }
 .tag-os   { background: #1a237e; color: #c5cae9; }
 .tag-vol  { background: #4a148c; color: #e1bee7; }
 .tag-fund { background: #263238; color: #cfd8dc; }
+.tag-macd { background: #0d3349; color: #79c0ff; }
+.tag-bb   { background: #2d1b69; color: #d2a8ff; }
 
-.divider { border: none; border-top: 1px solid #21262d; margin: 14px 0; }
+/* ── Colours ─────────────────────────────────────── */
+.up  { color: #3fb950; }
+.dn  { color: #f85149; }
+.neu { color: #8b949e; }
+.sym { color: #58a6ff; font-weight: 700; }
+.ob  { color: #f85149; }
+.os  { color: #3fb950; }
+
+/* ── Heatmap ─────────────────────────────────────── */
+#heatmap { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 0; }
+.hm-cell {
+    border-radius: 6px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    cursor: default; min-width: 80px; height: 60px; padding: 4px;
+}
+.hm-sym  { font-size: 13px; font-weight: 700; }
+.hm-pct  { font-size: 12px; margin-top: 2px; }
+
+/* ── Signal log ──────────────────────────────────── */
+#siglog-wrap table td { font-size: 12px; font-family: 'Cascadia Code', Consolas, monospace; }
+
+/* ── Footer ──────────────────────────────────────── */
+#footer {
+    background: #010409; border-top: 1px solid #21262d;
+    padding: 3px 16px; height: 22px;
+    display: flex; align-items: center; gap: 12px;
+    flex-shrink: 0;
+}
+.ft { color: #484f58; font-size: 11px; }
+.ft span { color: #8b949e; }
+
+.divider { border: none; border-top: 1px solid #21262d; margin: 12px 0; }
 </style>
 </head>
 <body onload="init()">
@@ -157,9 +175,10 @@ tr:hover td { background: #161b22; }
 <!-- Top bar -->
 <div id="topbar">
     <h1>&#128200; Binance Screener</h1>
-    <div class="meta">Updated: <span id="lastUpdate">&#8212;</span></div>
-    <div class="countdown">Refresh in <span id="cdNum">&#8212;</span>s</div>
-    <button id="btnRefresh" onclick="refresh()">&#8635; Refresh</button>
+    <div id="fng" class="t-meta">F&amp;G: &#8212;</div>
+    <div class="t-meta">Updated: <span id="lastUpdate">&#8212;</span></div>
+    <div class="t-cd">&#8635; <span id="cdNum">&#8212;</span>s</div>
+    <button id="btnRef" onclick="manualRefresh()">Refresh</button>
 </div>
 
 <!-- Filters -->
@@ -168,67 +187,127 @@ tr:hover td { background: #161b22; }
         <input type="checkbox" id="chkSig" onchange="render()">
         <label for="chkSig">Only signals</label>
     </div>
+    <div class="sep">|</div>
     <div class="fg">
-        <label>Pump/Dump %:</label>
+        <label>Pump/Dump %</label>
         <input type="number" id="nPump" value="3" min="0.5" max="20" step="0.5" onchange="render()">
     </div>
     <div class="fg">
-        <label>Vol spike x:</label>
+        <label>Vol x</label>
         <input type="number" id="nVol" value="3" min="1" max="20" step="0.5" onchange="render()">
     </div>
+    <div class="sep">|</div>
     <div class="fg">
-        <label>RSI:</label>
-        <input type="number" id="nRsiMin" value="0"   min="0" max="100" step="5" style="width:50px" onchange="render()">
-        <span>&#8211;</span>
-        <input type="number" id="nRsiMax" value="100" min="0" max="100" step="5" style="width:50px" onchange="render()">
+        <label>RSI</label>
+        <input type="number" id="nRsiMin" value="0"   min="0" max="100" step="5" style="width:44px" onchange="render()">
+        <span class="neu">&#8211;</span>
+        <input type="number" id="nRsiMax" value="100" min="0" max="100" step="5" style="width:44px" onchange="render()">
     </div>
+    <div class="sep">|</div>
     <div class="fg">
-        <label>Refresh (s):</label>
-        <input type="number" id="nRefresh" value="30" min="10" max="300" step="5" style="width:58px" onchange="resetTimer()">
+        <label>Refresh (s)</label>
+        <input type="number" id="nRefresh" value="30" min="10" max="300" step="5" style="width:52px" onchange="resetCd()">
     </div>
 </div>
 
-<!-- Main -->
-<div id="main">
-    <div id="pathHint" style="display:none; color:#f0883e; font-size:12px; margin-bottom:14px; padding:8px 12px; background:#161b22; border:1px solid #f0883e; border-radius:6px;"></div>
+<!-- Tabs -->
+<div id="tabs">
+    <button class="tab active" onclick="showTab('market',this)">Market</button>
+    <button class="tab" onclick="showTab('heatmap',this)">Heatmap</button>
+    <button class="tab" onclick="showTab('siglog',this)">Signal History</button>
+</div>
 
-    <div id="signals-section">
-        <div class="sec-head" id="sigHead">&#128680; Signals</div>
-        <div id="signals-grid"></div>
-        <div id="no-signals">No signals with current thresholds</div>
+<!-- Content -->
+<div id="content">
+
+    <!-- Market tab -->
+    <div id="tab-market">
+        <div class="sec-hd" id="sigHead">Signals</div>
+        <div id="sig-grid"></div>
+        <div id="no-sig"></div>
+        <hr class="divider">
+        <div class="sec-hd" id="tblHead">All pairs</div>
+        <div id="tbl-wrap"></div>
     </div>
 
-    <hr class="divider">
+    <!-- Heatmap tab -->
+    <div id="tab-heatmap" style="display:none">
+        <div class="sec-hd" style="margin-bottom:10px">24h Market Heatmap</div>
+        <div id="heatmap"></div>
+    </div>
 
-    <div class="sec-head" id="tblHead">All pairs</div>
-    <div id="tbl-wrap"></div>
+    <!-- Signal log tab -->
+    <div id="tab-siglog" style="display:none">
+        <div class="sec-hd" style="margin-bottom:10px">Signal History (last 200)</div>
+        <div id="siglog-wrap"></div>
+    </div>
+
 </div>
+
+<!-- Footer -->
+<div id="footer">
+    <div class="ft">Path: <span id="ftPath">&#8212;</span></div>
+    <div class="ft">Interval: <span id="ftIntv">&#8212;</span></div>
+    <div class="ft">Pairs: <span id="ftPairs">&#8212;</span></div>
+</div>
+
+<!-- VBScript: надёжное определение пути -->
+<script language="VBScript">
+Function GetBaseVBS()
+    Dim fso, p
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    p = document.location.pathname
+    If Left(p, 1) = "/" Then p = Mid(p, 2)
+    p = Replace(p, "/", "\")
+    GetBaseVBS = fso.GetParentFolderName(p)
+End Function
+</script>
 
 <script language="JScript">
-// ── Globals ────────────────────────────────────────────────────────────────────
-var oFSO = new ActiveXObject("Scripting.FileSystemObject");
-var BASE  = "";
-var SYMS  = [];
-var INTV  = "5m";
-var CPH   = {"1m":60,"3m":20,"5m":12,"15m":4,"30m":2,"1h":1,"2h":1,"4h":1};
-var N1H   = 12;
+// ── Globals ───────────────────────────────────────────────────────────────────
+var oFSO    = new ActiveXObject("Scripting.FileSystemObject");
+var BASE    = "";
+var SYMS    = [];
+var INTV    = "5m";
+var CPH     = {"1m":60,"3m":20,"5m":12,"15m":4,"30m":2,"1h":1,"2h":1,"4h":1};
+var N1H     = 12;
+var allData = [];
+var sortCol = -1;
+var sortAsc = true;
+var cdSec   = 30;
+var cdTimer = null;
+var curTab  = "market";
 
-var allData  = [];
-var sortCol  = -1;
-var sortAsc  = true;
-var cdSec    = 30;
-var cdTimer  = null;
+// ── Path detection ────────────────────────────────────────────────────────────
+function detectBase() {
+    // 1. VBScript helper (most reliable)
+    try {
+        var b = GetBaseVBS();
+        if (b && oFSO.FolderExists(b)) return b;
+    } catch(e) {}
 
-// ── File helpers ───────────────────────────────────────────────────────────────
-function getBase() {
-    // location.href в HTA = "file:///C:/path/to/screener.hta"
-    var href = location.href;
-    var p = href.replace(/^file:\/\/\//i, "");
-    p = decodeURIComponent(p).replace(/\//g, "\\");
-    var last = p.lastIndexOf("\\");
-    return last >= 0 ? p.substring(0, last) : p;
+    // 2. location.href
+    try {
+        var href = location.href.replace(/^file:\/\/\//i, "");
+        href = decodeURIComponent(href).replace(/\//g, "\\");
+        var last = href.lastIndexOf("\\");
+        var b2 = last >= 0 ? href.substring(0, last) : href;
+        if (b2 && oFSO.FolderExists(b2)) return b2;
+    } catch(e) {}
+
+    // 3. Common install locations
+    var candidates = [
+        "C:\\BinanceScreener",
+        "C:\\BinanceCollector",
+        "C:\\Users\\Administrator\\BinanceScreener"
+    ];
+    for (var i = 0; i < candidates.length; i++) {
+        if (oFSO.FolderExists(candidates[i] + "\\data")) return candidates[i];
+    }
+    return "";
 }
 
+// ── File helpers ──────────────────────────────────────────────────────────────
 function readFile(path) {
     try {
         if (!oFSO.FileExists(path)) return null;
@@ -239,11 +318,19 @@ function readFile(path) {
     } catch(e) { return null; }
 }
 
+function writeAppend(path, line) {
+    try {
+        var f = oFSO.OpenTextFile(path, 8, true, -2); // 8 = ForAppending
+        f.WriteLine(line);
+        f.Close();
+    } catch(e) {}
+}
+
 function parseCSV(txt) {
     if (!txt) return null;
     txt = txt.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-    var lines = [];
     var raw = txt.split("\n");
+    var lines = [];
     for (var i = 0; i < raw.length; i++) {
         if (raw[i].trim() !== "") lines.push(raw[i]);
     }
@@ -253,138 +340,174 @@ function parseCSV(txt) {
     var rows = [];
     for (var r = 1; r < lines.length; r++) {
         var cols = lines[r].split(",");
-        var row  = {};
-        for (var c = 0; c < hdrs.length; c++) {
-            row[hdrs[c]] = cols[c] ? cols[c].trim() : "";
-        }
+        var row = {};
+        for (var c = 0; c < hdrs.length; c++) row[hdrs[c]] = cols[c] ? cols[c].trim() : "";
         rows.push(row);
     }
     return rows;
 }
 
-// ── Config ─────────────────────────────────────────────────────────────────────
+// ── Config & interval auto-detect ─────────────────────────────────────────────
 function loadConfig() {
     var txt = readFile(BASE + "\\config.yaml");
-    if (!txt) { setDefaults(); return; }
-    var lines = txt.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-    var inSpot = false, inIntv = false;
-    SYMS = []; INTV = "5m";
-    for (var i = 0; i < lines.length; i++) {
-        var l = lines[i];
-        if (/^spot_symbols:/.test(l))  { inSpot = true;  inIntv = false; continue; }
-        if (/^intervals:/.test(l))     { inIntv = true;  inSpot = false; continue; }
-        if (/^\w/.test(l))             { inSpot = false; inIntv = false; }
-        if (inSpot) { var m = l.match(/^\s+-\s+(\S+)/); if (m) SYMS.push(m[1]); }
-        if (inIntv) { var m2 = l.match(/^\s+-\s+(\S+)/); if (m2) INTV = m2[1]; }
+    SYMS = [];
+    if (txt) {
+        var lines = txt.replace(/\r\n/g,"\n").replace(/\r/g,"\n").split("\n");
+        var inSpot = false, inIntv = false;
+        for (var i = 0; i < lines.length; i++) {
+            var l = lines[i];
+            if (/^spot_symbols:/.test(l))  { inSpot=true;  inIntv=false; continue; }
+            if (/^intervals:/.test(l))     { inIntv=true;  inSpot=false; continue; }
+            if (/^\w/.test(l))             { inSpot=false; inIntv=false; }
+            if (inSpot) { var m=l.match(/^\s+-\s+(\S+)/); if(m) SYMS.push(m[1]); }
+            if (inIntv) { var m2=l.match(/^\s+-\s+(\S+)/); if(m2) INTV=m2[1]; }
+        }
     }
-    if (SYMS.length === 0) setDefaults();
+    if (SYMS.length === 0) {
+        SYMS = ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","DOGEUSDT",
+                "ADAUSDT","AVAXUSDT","LINKUSDT","DOTUSDT","LTCUSDT","MATICUSDT",
+                "UNIUSDT","ATOMUSDT","ETCUSDT","NEARUSDT","OPUSDT","ARBUSDT",
+                "INJUSDT","SHIBUSDT"];
+    }
+
+    // Auto-detect actual interval from data folder
+    var ivs = ["1m","3m","5m","15m","30m","1h","4h","1d"];
+    for (var j = 0; j < ivs.length; j++) {
+        if (oFSO.FolderExists(BASE + "\\data\\ohlcv\\" + ivs[j])) {
+            INTV = ivs[j];
+            break;
+        }
+    }
     N1H = CPH[INTV] || 12;
 }
 
-function setDefaults() {
-    SYMS = ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","DOGEUSDT",
-            "ADAUSDT","AVAXUSDT","LINKUSDT","DOTUSDT","LTCUSDT","MATICUSDT",
-            "UNIUSDT","ATOMUSDT","ETCUSDT","NEARUSDT","OPUSDT","ARBUSDT",
-            "INJUSDT","SHIBUSDT"];
-    INTV = "5m"; N1H = 12;
-}
-
-// ── RSI ────────────────────────────────────────────────────────────────────────
-function rsi(closes, period) {
-    if (!period) period = 14;
+// ── Indicators ────────────────────────────────────────────────────────────────
+function calcRSI(closes, period) {
+    period = period || 14;
     if (closes.length < period + 1) return null;
-    var alpha = 1.0 / period;
-    var ag = 0, al = 0, ok = false;
+    var alpha = 1.0 / period, ag = 0, al = 0, ok = false;
     for (var i = 1; i < closes.length; i++) {
         var d = closes[i] - closes[i-1];
-        var g = d > 0 ? d : 0;
-        var l = d < 0 ? -d : 0;
-        if (!ok) { ag = g; al = l; ok = true; }
-        else     { ag = alpha*g + (1-alpha)*ag; al = alpha*l + (1-alpha)*al; }
+        var g = d > 0 ? d : 0, l = d < 0 ? -d : 0;
+        if (!ok) { ag=g; al=l; ok=true; }
+        else     { ag=alpha*g+(1-alpha)*ag; al=alpha*l+(1-alpha)*al; }
     }
     if (al === 0) return 100;
-    return 100 - 100 / (1 + ag / al);
+    return 100 - 100 / (1 + ag/al);
 }
 
-// ── Load data ──────────────────────────────────────────────────────────────────
+function calcEMA(data, period) {
+    if (data.length === 0) return [];
+    var k = 2.0 / (period + 1), res = [data[0]];
+    for (var i = 1; i < data.length; i++) res.push(data[i]*k + res[i-1]*(1-k));
+    return res;
+}
+
+function calcMACD(closes) {
+    if (closes.length < 35) return null;
+    var fast = calcEMA(closes, 12), slow = calcEMA(closes, 26), macd = [];
+    for (var i = 0; i < closes.length; i++) macd.push(fast[i] - slow[i]);
+    var sig = calcEMA(macd, 9), n = closes.length - 1;
+    return {
+        crossUp:   macd[n-1] < sig[n-1] && macd[n] >= sig[n],
+        crossDown: macd[n-1] > sig[n-1] && macd[n] <= sig[n],
+        bullish:   macd[n] > sig[n]
+    };
+}
+
+function calcBB(closes) {
+    if (closes.length < 20) return null;
+    var sl = closes.slice(-20), mean = 0;
+    for (var i = 0; i < sl.length; i++) mean += sl[i];
+    mean /= 20;
+    var vr = 0;
+    for (var i = 0; i < sl.length; i++) vr += (sl[i]-mean)*(sl[i]-mean);
+    var std = Math.sqrt(vr/20);
+    var cur = closes[closes.length-1];
+    return {
+        above: cur > mean + 2*std,
+        below: cur < mean - 2*std,
+        pctB:  std > 0 ? (cur - (mean - 2*std)) / (4*std) : 0.5
+    };
+}
+
+// ── Load data ─────────────────────────────────────────────────────────────────
 function loadData() {
     allData = [];
     for (var s = 0; s < SYMS.length; s++) {
         var sym = SYMS[s];
-        var tickRows = parseCSV(readFile(BASE + "\\data\\tickers\\" + sym + ".csv"));
-        var ohlcRows = parseCSV(readFile(BASE + "\\data\\ohlcv\\" + INTV + "\\" + sym + ".csv"));
-        var fundRows = parseCSV(readFile(BASE + "\\data\\futures\\funding_rates\\" + sym + ".csv"));
+        var ticks = parseCSV(readFile(BASE + "\\data\\tickers\\"              + sym + ".csv"));
+        var ohlcv = parseCSV(readFile(BASE + "\\data\\ohlcv\\" + INTV + "\\" + sym + ".csv"));
+        var funds = parseCSV(readFile(BASE + "\\data\\futures\\funding_rates\\"+ sym + ".csv"));
 
-        if (!tickRows || tickRows.length === 0) continue;
+        if (!ticks || ticks.length === 0) continue;
 
-        var last     = tickRows[tickRows.length - 1];
-        var price    = parseFloat(last["price"])          || 0;
-        var ch24     = parseFloat(last["change_pct_24h"]) || 0;
+        var last  = ticks[ticks.length-1];
+        var price = parseFloat(last["price"])          || 0;
+        var ch24  = parseFloat(last["change_pct_24h"]) || 0;
 
-        var rsiVal   = null, ch1h = null, volSpk = null, fund = null;
+        var rsiVal=null, ch1h=null, volSpk=null, macdR=null, bbR=null, fund=null;
 
-        if (ohlcRows && ohlcRows.length >= Math.max(15, N1H + 1)) {
+        if (ohlcv && ohlcv.length >= Math.max(35, N1H+1)) {
             var closes = [];
-            for (var i = 0; i < ohlcRows.length; i++) closes.push(parseFloat(ohlcRows[i]["close"]));
+            for (var i = 0; i < ohlcv.length; i++) closes.push(parseFloat(ohlcv[i]["close"]));
 
-            var rv = rsi(closes, 14);
-            rsiVal = rv !== null ? Math.round(rv * 10) / 10 : null;
+            var rv = calcRSI(closes, 14);
+            rsiVal = rv !== null ? Math.round(rv*10)/10 : null;
 
-            var prev = closes[closes.length - (N1H + 1)];
-            var curr = closes[closes.length - 1];
-            if (prev > 0) ch1h = Math.round((curr - prev) / prev * 10000) / 100;
+            var prev = closes[closes.length-(N1H+1)], curr = closes[closes.length-1];
+            if (prev > 0) ch1h = Math.round((curr-prev)/prev*10000)/100;
 
-            if ("volume" in ohlcRows[0]) {
+            if ("volume" in ohlcv[0]) {
                 var vols = [];
-                for (var j = 0; j < ohlcRows.length; j++) vols.push(parseFloat(ohlcRows[j]["volume"]));
-                var slice = vols.slice(-21, -1);
-                var sum = 0;
-                for (var k = 0; k < slice.length; k++) sum += slice[k];
-                var avg = slice.length > 0 ? sum / slice.length : 0;
-                if (avg > 0) volSpk = Math.round(vols[vols.length-1] / avg * 100) / 100;
+                for (var j = 0; j < ohlcv.length; j++) vols.push(parseFloat(ohlcv[j]["volume"]));
+                var sl = vols.slice(-21,-1), sum = 0;
+                for (var k = 0; k < sl.length; k++) sum += sl[k];
+                var avg = sl.length > 0 ? sum/sl.length : 0;
+                if (avg > 0) volSpk = Math.round(vols[vols.length-1]/avg*100)/100;
             }
+
+            macdR = calcMACD(closes);
+            bbR   = calcBB(closes);
         }
 
-        if (fundRows && fundRows.length > 0) {
-            var fr = parseFloat(fundRows[fundRows.length-1]["funding_rate"]);
-            if (!isNaN(fr)) fund = Math.round(fr * 1000000) / 10000;
+        if (funds && funds.length > 0) {
+            var fr = parseFloat(funds[funds.length-1]["funding_rate"]);
+            if (!isNaN(fr)) fund = Math.round(fr*1000000)/10000;
         }
 
         allData.push({
-            sym:  sym.replace("USDT",""),
-            full: sym,
+            sym: sym.replace("USDT",""), full: sym,
             price: price, ch24: ch24, ch1h: ch1h,
-            rsi: rsiVal, vol: volSpk, fund: fund
+            rsi: rsiVal, vol: volSpk, fund: fund,
+            macd: macdR, bb: bbR
         });
     }
 
-    // show path hint if no data found
-    var hint = document.getElementById("pathHint");
-    if (allData.length === 0) {
-        hint.style.display = "";
-        hint.innerText = "Data not found. Looking in: " + BASE + "\\data\\tickers\\";
-    } else {
-        hint.style.display = "none";
-    }
+    // Footer info
+    document.getElementById("ftPath").innerText  = BASE || "?";
+    document.getElementById("ftIntv").innerText  = INTV;
+    document.getElementById("ftPairs").innerText = allData.length;
 
-    // timestamp
+    // Timestamp
     var now = new Date();
-    function pad(n) { return n < 10 ? "0"+n : ""+n; }
+    function p2(n){return n<10?"0"+n:""+n;}
     document.getElementById("lastUpdate").innerText =
-        pad(now.getUTCHours())+":"+pad(now.getUTCMinutes())+":"+pad(now.getUTCSeconds())+" UTC";
+        p2(now.getUTCHours())+":"+p2(now.getUTCMinutes())+":"+p2(now.getUTCSeconds())+" UTC";
 
     render();
+    if (curTab === "heatmap") renderHeatmap();
+    if (curTab === "siglog")  renderSigLog();
 }
 
-// ── Signals ────────────────────────────────────────────────────────────────────
+// ── Signals ───────────────────────────────────────────────────────────────────
 function getSignals(row, thr) {
-    var out = [];
-    var c = row.ch1h, rv = row.rsi, v = row.vol, f = row.fund;
+    var out = [], c=row.ch1h, rv=row.rsi, v=row.vol, f=row.fund, macd=row.macd, bb=row.bb;
     if (c !== null) {
-        if      (c >= thr.pump*1.5)  out.push({l:"PUMP",        c:"pump"});
-        else if (c >= thr.pump)      out.push({l:"PUMP+",       c:"pump"});
-        else if (c <= -thr.pump*1.5) out.push({l:"DUMP",        c:"dump"});
-        else if (c <= -thr.pump)     out.push({l:"DUMP+",       c:"dump"});
+        if      (c >= thr.pump*1.5)  out.push({l:"PUMP",  c:"pump"});
+        else if (c >= thr.pump)      out.push({l:"PUMP+", c:"pump"});
+        else if (c <= -thr.pump*1.5) out.push({l:"DUMP",  c:"dump"});
+        else if (c <= -thr.pump)     out.push({l:"DUMP+", c:"dump"});
     }
     if (rv !== null) {
         if      (rv >= 75) out.push({l:"OVERBOUGHT", c:"ob"});
@@ -397,151 +520,296 @@ function getSignals(row, thr) {
         if      (f >= 0.05)  out.push({l:"FUND+", c:"fund"});
         else if (f <= -0.05) out.push({l:"FUND-", c:"fund"});
     }
+    if (macd) {
+        if      (macd.crossUp)   out.push({l:"MACD\u2191", c:"macd"});
+        else if (macd.crossDown) out.push({l:"MACD\u2193", c:"macd"});
+    }
+    if (bb) {
+        if      (bb.above) out.push({l:"BB+", c:"bb"});
+        else if (bb.below) out.push({l:"BB-", c:"bb"});
+    }
     return out;
 }
 
-// ── Formatting ─────────────────────────────────────────────────────────────────
+// ── Signal logging ────────────────────────────────────────────────────────────
+function logNewSignals(rows) {
+    var logPath = BASE + "\\data\\signals_log.csv";
+    if (!oFSO.FileExists(logPath)) {
+        try {
+            var hf = oFSO.CreateTextFile(logPath, true, false);
+            hf.WriteLine("timestamp,symbol,price,signals");
+            hf.Close();
+        } catch(e) { return; }
+    }
+    var now = new Date();
+    function p2(n){return n<10?"0"+n:""+n;}
+    var ts = now.getUTCFullYear()+"-"+p2(now.getUTCMonth()+1)+"-"+p2(now.getUTCDate())+
+             "T"+p2(now.getUTCHours())+":"+p2(now.getUTCMinutes())+":"+p2(now.getUTCSeconds())+"Z";
+    for (var i = 0; i < rows.length; i++) {
+        if (rows[i].sigs.length === 0) continue;
+        var sigStr = "";
+        for (var j = 0; j < rows[i].sigs.length; j++) {
+            sigStr += (j>0?"|":"") + rows[i].sigs[j].l;
+        }
+        writeAppend(logPath, ts+","+rows[i].row.full+","+rows[i].row.price+","+sigStr);
+    }
+}
+
+// ── Formatting ────────────────────────────────────────────────────────────────
 function fPrice(p) {
     if (p === null || isNaN(p)) return "&#8212;";
-    if (p >= 1000) return "$" + p.toFixed(2);
-    if (p >= 1)    return "$" + p.toFixed(4);
-    return "$" + p.toFixed(6);
+    if (p >= 1000)  return "$"+p.toFixed(2);
+    if (p >= 1)     return "$"+p.toFixed(4);
+    return "$"+p.toFixed(6);
 }
 function fPct(v) {
     if (v === null || isNaN(v)) return "&#8212;";
-    return (v > 0 ? "+" : "") + v.toFixed(2) + "%";
+    return (v>0?"+":"")+v.toFixed(2)+"%";
 }
-function pcls(v) { return (v > 0) ? "up" : (v < 0) ? "dn" : "neu"; }
-function rcls(v) { if (v === null) return ""; return v >= 70 ? "dn" : v <= 30 ? "up" : ""; }
+function pcls(v) { return v===null||isNaN(v)?"neu":v>0?"up":v<0?"dn":"neu"; }
+function rcls(v) { if(v===null) return ""; return v>=70?"ob":v<=30?"os":""; }
 
-function tags(arr) {
+function mkTags(arr) {
     var h = "";
-    for (var i = 0; i < arr.length; i++)
-        h += '<span class="tag tag-'+arr[i].c+'">'+arr[i].l+'</span>';
+    for (var i = 0; i < arr.length; i++) h += '<span class="tag tag-'+arr[i].c+'">'+arr[i].l+'</span>';
     return h;
 }
 
-// ── Render ─────────────────────────────────────────────────────────────────────
+// ── Render market tab ─────────────────────────────────────────────────────────
 function render() {
     var thr = {
-        pump: parseFloat(document.getElementById("nPump").value)    || 3,
-        vol:  parseFloat(document.getElementById("nVol").value)     || 3,
-        rMin: parseFloat(document.getElementById("nRsiMin").value)  || 0,
-        rMax: parseFloat(document.getElementById("nRsiMax").value)  || 100
+        pump: parseFloat(document.getElementById("nPump").value)   || 3,
+        vol:  parseFloat(document.getElementById("nVol").value)    || 3,
+        rMin: parseFloat(document.getElementById("nRsiMin").value) || 0,
+        rMax: parseFloat(document.getElementById("nRsiMax").value) || 100
     };
     var onlySig = document.getElementById("chkSig").checked;
 
-    // filter + attach signals
     var filtered = [];
     for (var i = 0; i < allData.length; i++) {
-        var row = allData[i];
+        var row  = allData[i];
         var sigs = getSignals(row, thr);
-        var rOk  = (row.rsi === null) || (row.rsi >= thr.rMin && row.rsi <= thr.rMax);
+        var rOk  = row.rsi===null || (row.rsi>=thr.rMin && row.rsi<=thr.rMax);
         if (!rOk) continue;
-        if (onlySig && sigs.length === 0) continue;
-        filtered.push({row: row, sigs: sigs});
+        if (onlySig && sigs.length===0) continue;
+        filtered.push({row:row, sigs:sigs});
     }
 
-    // ── Signal cards ────────────────────────────────────────────────────────────
+    // Log signals
+    logNewSignals(filtered);
+
+    // Signal cards
     var alerts = [];
-    for (var j = 0; j < filtered.length; j++) {
-        if (filtered[j].sigs.length > 0) alerts.push(filtered[j]);
-    }
-    document.getElementById("sigHead").innerText = "\uD83D\uDEA8 Signals ("+alerts.length+")";
+    for (var j = 0; j < filtered.length; j++) if (filtered[j].sigs.length>0) alerts.push(filtered[j]);
 
-    var grid = document.getElementById("signals-grid");
-    var noSig = document.getElementById("no-signals");
+    document.getElementById("sigHead").innerText = "Signals \u2014 "+alerts.length;
+
+    var grid = document.getElementById("sig-grid");
+    var noSig = document.getElementById("no-sig");
     if (alerts.length === 0) {
         grid.innerHTML = "";
-        noSig.style.display = "";
+        noSig.innerText = "No signals with current thresholds";
     } else {
-        noSig.style.display = "none";
+        noSig.innerText = "";
         var gh = "";
         for (var k = 0; k < alerts.length; k++) {
-            var r   = alerts[k].row;
-            var sg  = alerts[k].sigs;
-            var c1h = r.ch1h !== null ? fPct(r.ch1h) : "&#8212;";
-            var rv  = r.rsi  !== null ? " &middot; RSI "+r.rsi.toFixed(0) : "";
-            gh += '<div class="scard">' +
-                  '<div class="scard-sym">'+r.sym+'</div>' +
-                  '<div class="scard-meta">'+fPrice(r.price)+' &middot; 1h: '+c1h+rv+'</div>' +
-                  '<div class="scard-tags">'+tags(sg)+'</div>' +
+            var r = alerts[k].row, sg = alerts[k].sigs;
+            var c1h = r.ch1h!==null ? fPct(r.ch1h) : "&#8212;";
+            var rv  = r.rsi!==null  ? " \u00b7 RSI "+r.rsi.toFixed(0) : "";
+            gh += '<div class="scard">'+
+                  '<div class="scard-sym">'+r.sym+'</div>'+
+                  '<div class="scard-meta">'+fPrice(r.price)+' \u00b7 1h: '+c1h+rv+'</div>'+
+                  '<div class="scard-tags">'+mkTags(sg)+'</div>'+
                   '</div>';
         }
         grid.innerHTML = gh;
     }
 
-    // ── Table ────────────────────────────────────────────────────────────────────
-    document.getElementById("tblHead").innerText = "All pairs ("+filtered.length+")";
+    // Table
+    document.getElementById("tblHead").innerText = "All pairs \u2014 "+filtered.length;
 
     var COLS = [
-        {k:"sym",   l:"Symbol",  r:false},
-        {k:"price", l:"Price",   r:true},
-        {k:"ch24",  l:"24h %",   r:true},
-        {k:"ch1h",  l:"1h %",    r:true},
-        {k:"rsi",   l:"RSI",     r:true},
-        {k:"vol",   l:"Vol x",   r:true},
-        {k:"fund",  l:"Fund %",  r:true},
-        {k:"_sig",  l:"Signals", r:false}
+        {k:"sym",   l:"Symbol"},
+        {k:"price", l:"Price"},
+        {k:"ch24",  l:"24h %"},
+        {k:"ch1h",  l:"1h %"},
+        {k:"rsi",   l:"RSI"},
+        {k:"vol",   l:"Vol x"},
+        {k:"fund",  l:"Fund %"},
+        {k:"macd",  l:"MACD"},
+        {k:"bb",    l:"BB"},
+        {k:"_sig",  l:"Signals"}
     ];
 
     var thead = "<thead><tr>";
     for (var c = 0; c < COLS.length; c++) {
-        var arrow = sortCol === c ? (sortAsc ? " &#8593;" : " &#8595;") : "";
-        thead += "<th onclick=\"sortBy("+c+")\">" + COLS[c].l + arrow + "</th>";
+        var arr = sortCol===c ? (sortAsc?" &#8593;":" &#8595;") : "";
+        thead += "<th onclick=\"sortBy("+c+")\">"+COLS[c].l+arr+"</th>";
     }
     thead += "</tr></thead>";
 
-    // sort
+    // Sort
     var sorted = filtered.slice();
-    if (sortCol >= 0 && sortCol < COLS.length) {
-        var key = COLS[sortCol].k;
-        var asc = sortAsc;
-        sorted.sort(function(a, b) {
-            var av = (key === "_sig") ? a.sigs.length : a.row[key];
-            var bv = (key === "_sig") ? b.sigs.length : b.row[key];
-            if (av === null || av === undefined) av = asc ? 1e18 : -1e18;
-            if (bv === null || bv === undefined) bv = asc ? 1e18 : -1e18;
-            if (typeof av === "string") return asc ? av.localeCompare(bv) : bv.localeCompare(av);
-            return asc ? av - bv : bv - av;
+    if (sortCol >= 0) {
+        var key = COLS[sortCol].k, asc = sortAsc;
+        sorted.sort(function(a,b) {
+            var av, bv;
+            if (key==="macd")  { av=a.row.macd?a.row.macd.bullish?1:-1:0; bv=b.row.macd?b.row.macd.bullish?1:-1:0; }
+            else if (key==="bb")    { av=a.row.bb?a.row.bb.pctB:0.5; bv=b.row.bb?b.row.bb.pctB:0.5; }
+            else if (key==="_sig")  { av=a.sigs.length; bv=b.sigs.length; }
+            else { av=a.row[key]; bv=b.row[key]; }
+            if (av===null||av===undefined) av=asc?1e18:-1e18;
+            if (bv===null||bv===undefined) bv=asc?1e18:-1e18;
+            if (typeof av==="string") return asc?av.localeCompare(bv):bv.localeCompare(av);
+            return asc?av-bv:bv-av;
         });
     }
 
     var tbody = "<tbody>";
     for (var r = 0; r < sorted.length; r++) {
-        var row  = sorted[r].row;
-        var sg   = sorted[r].sigs;
-        var rvD  = row.rsi  !== null ? row.rsi.toFixed(1) : "&#8212;";
-        var volD = row.vol  !== null ? row.vol.toFixed(2)+"x" : "&#8212;";
-        var frD  = row.fund !== null ? (row.fund>0?"+":"")+row.fund.toFixed(4)+"%" : "&#8212;";
-        var sgH  = sg.length > 0 ? tags(sg) : '<span class="neu">&#8212;</span>';
-
-        tbody += "<tr>" +
-            '<td class="sym">'+row.sym+'</td>' +
-            '<td style="text-align:right">'+fPrice(row.price)+'</td>' +
-            '<td style="text-align:right" class="'+pcls(row.ch24)+'">'+fPct(row.ch24)+'</td>' +
-            '<td style="text-align:right" class="'+pcls(row.ch1h)+'">'+fPct(row.ch1h)+'</td>' +
-            '<td style="text-align:right" class="'+rcls(row.rsi)+'">'+rvD+'</td>' +
-            '<td style="text-align:right">'+volD+'</td>' +
-            '<td style="text-align:right" class="'+pcls(row.fund)+'">'+frD+'</td>' +
-            '<td>'+sgH+'</td>' +
+        var row = sorted[r].row, sg = sorted[r].sigs;
+        var rvD = row.rsi!==null  ? row.rsi.toFixed(1)     : "&#8212;";
+        var vlD = row.vol!==null  ? row.vol.toFixed(2)+"x" : "&#8212;";
+        var frD = row.fund!==null ? (row.fund>0?"+":"")+row.fund.toFixed(4)+"%" : "&#8212;";
+        var macdD = "&#8212;", bbD = "&#8212;";
+        if (row.macd) macdD = row.macd.bullish ? '<span class="up">&#9650;</span>' : '<span class="dn">&#9660;</span>';
+        if (row.bb)   bbD   = Math.round(row.bb.pctB*100)+"%";
+        var sgH = sg.length>0 ? mkTags(sg) : '<span class="neu">&#8212;</span>';
+        tbody += "<tr>"+
+            '<td class="sym">'+row.sym+'</td>'+
+            '<td>'+fPrice(row.price)+'</td>'+
+            '<td class="'+pcls(row.ch24)+'">'+fPct(row.ch24)+'</td>'+
+            '<td class="'+pcls(row.ch1h)+'">'+fPct(row.ch1h)+'</td>'+
+            '<td class="'+rcls(row.rsi)+'">'+rvD+'</td>'+
+            '<td>'+vlD+'</td>'+
+            '<td class="'+pcls(row.fund)+'">'+frD+'</td>'+
+            '<td>'+macdD+'</td>'+
+            '<td class="neu">'+bbD+'</td>'+
+            '<td>'+sgH+'</td>'+
             '</tr>';
     }
     tbody += "</tbody>";
-
-    document.getElementById("tbl-wrap").innerHTML =
-        '<table>' + thead + tbody + '</table>';
+    document.getElementById("tbl-wrap").innerHTML = '<table>'+thead+tbody+'</table>';
 }
 
-// ── Sort ───────────────────────────────────────────────────────────────────────
+// ── Heatmap ───────────────────────────────────────────────────────────────────
+function renderHeatmap() {
+    if (allData.length === 0) {
+        document.getElementById("heatmap").innerHTML = '<span class="neu">No data</span>';
+        return;
+    }
+    function pctColor(pct) {
+        var v = Math.min(Math.max(pct, -10), 10);
+        if (v > 0) {
+            var g = Math.round(100 + v/10*80), r = Math.round(30 + (1-v/10)*30);
+            return "rgb("+r+","+g+","+r+")";
+        } else {
+            var r2 = Math.round(100 + (-v)/10*80), g2 = Math.round(30 + (1-(-v)/10)*30);
+            return "rgb("+r2+","+g2+","+g2+")";
+        }
+    }
+    var html = "";
+    for (var i = 0; i < allData.length; i++) {
+        var d   = allData[i];
+        var pct = d.ch24;
+        var bg  = isNaN(pct) ? "#21262d" : pctColor(pct);
+        var tc  = Math.abs(pct) > 3 ? "#fff" : "#ccc";
+        html += '<div class="hm-cell" style="background:'+bg+';color:'+tc+'" title="'+d.full+' | 24h: '+fPct(pct)+'">'+
+                '<div class="hm-sym">'+d.sym+'</div>'+
+                '<div class="hm-pct">'+fPct(pct)+'</div>'+
+                '</div>';
+    }
+    document.getElementById("heatmap").innerHTML = html;
+}
+
+// ── Signal log ────────────────────────────────────────────────────────────────
+function renderSigLog() {
+    var logPath = BASE + "\\data\\signals_log.csv";
+    var rows = parseCSV(readFile(logPath));
+    if (!rows || rows.length === 0) {
+        document.getElementById("siglog-wrap").innerHTML =
+            '<span class="neu" style="font-size:12px">No signal history yet. Signals are saved automatically on each refresh.</span>';
+        return;
+    }
+    // Show last 200, newest first
+    var slice = rows.slice(-200).reverse();
+    var html = '<table><thead><tr>'+
+        '<th>Time (UTC)</th><th>Symbol</th><th>Price</th><th>Signals</th>'+
+        '</tr></thead><tbody>';
+    for (var i = 0; i < slice.length; i++) {
+        var r   = slice[i];
+        var ts  = r["timestamp"] ? r["timestamp"].replace("T"," ").replace("Z","") : "?";
+        var sgs = r["signals"] ? r["signals"].split("|") : [];
+        var tagHtml = "";
+        for (var j = 0; j < sgs.length; j++) {
+            var l = sgs[j];
+            var c = "neu";
+            if (l.indexOf("PUMP") >= 0) c="pump";
+            else if (l.indexOf("DUMP") >= 0) c="dump";
+            else if (l.indexOf("OB") >= 0 || l.indexOf("OVE") >= 0) c="ob";
+            else if (l.indexOf("OS") >= 0 || l.indexOf("OVE") >= 0) c="os";
+            else if (l.indexOf("VOL") >= 0) c="vol";
+            else if (l.indexOf("FUND") >= 0) c="fund";
+            else if (l.indexOf("MACD") >= 0) c="macd";
+            else if (l.indexOf("BB") >= 0) c="bb";
+            tagHtml += '<span class="tag tag-'+c+'">'+l+'</span>';
+        }
+        html += '<tr>'+
+            '<td class="neu">'+ts+'</td>'+
+            '<td class="sym">'+r["symbol"].replace("USDT","")+'</td>'+
+            '<td>'+r["price"]+'</td>'+
+            '<td>'+tagHtml+'</td>'+
+            '</tr>';
+    }
+    html += '</tbody></table>';
+    document.getElementById("siglog-wrap").innerHTML = html;
+}
+
+// ── Fear & Greed ──────────────────────────────────────────────────────────────
+function loadFearGreed() {
+    try {
+        var xhr = new ActiveXObject("MSXML2.XMLHTTP");
+        xhr.open("GET", "https://api.alternative.me/fng/?limit=1", true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== 4 || xhr.status !== 200) return;
+            try {
+                var d   = eval("("+xhr.responseText+")");
+                var val = parseInt(d.data[0].value);
+                var cls = d.data[0].value_classification;
+                var el  = document.getElementById("fng");
+                el.innerText = "F&G: "+val+" \u2014 "+cls;
+                el.style.color = val<=25?"#f85149":val<=45?"#f0883e":val<=55?"#8b949e":val<=75?"#3fb950":"#69f0ae";
+            } catch(e) {}
+        };
+        xhr.send();
+    } catch(e) {}
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function showTab(name, el) {
+    curTab = name;
+    var tabs = ["market","heatmap","siglog"];
+    for (var i = 0; i < tabs.length; i++) {
+        var d = document.getElementById("tab-"+tabs[i]);
+        if (d) d.style.display = (tabs[i]===name) ? "" : "none";
+    }
+    var btns = document.getElementById("tabs").getElementsByTagName("button");
+    for (var j = 0; j < btns.length; j++) btns[j].className = "tab";
+    if (el) el.className = "tab active";
+
+    if (name === "heatmap") renderHeatmap();
+    if (name === "siglog")  renderSigLog();
+}
+
+// ── Sort ──────────────────────────────────────────────────────────────────────
 function sortBy(col) {
-    if (sortCol === col) sortAsc = !sortAsc;
-    else { sortCol = col; sortAsc = true; }
+    if (sortCol===col) sortAsc=!sortAsc;
+    else { sortCol=col; sortAsc=true; }
     render();
 }
 
-// ── Timer ──────────────────────────────────────────────────────────────────────
-function resetTimer() {
+// ── Timer ─────────────────────────────────────────────────────────────────────
+function resetCd() {
     cdSec = parseInt(document.getElementById("nRefresh").value) || 30;
     document.getElementById("cdNum").innerText = cdSec;
 }
@@ -559,21 +827,17 @@ function startTimer() {
     }, 1000);
 }
 
-function refresh() {
+function manualRefresh() {
     cdSec = parseInt(document.getElementById("nRefresh").value) || 30;
     loadData();
 }
 
-// ── Init ───────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 function init() {
-    window.resizeTo(1280, 800);
-    window.moveTo(
-        Math.max(0, (screen.availWidth  - 1280) / 2),
-        Math.max(0, (screen.availHeight - 800)  / 2)
-    );
-    BASE = getBase();
+    BASE = detectBase();
     loadConfig();
     loadData();
+    loadFearGreed();
     startTimer();
 }
 </script>
