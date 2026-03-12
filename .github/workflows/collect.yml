@@ -1,9 +1,9 @@
-name: Collect Crypto Data
+name: Collect Binance Data
 
 on:
   schedule:
-    # Каждый час в :05 минут
-    - cron: '5 * * * *'
+    # Каждые 5 минут (минимальный интервал GitHub Actions)
+    - cron: '*/5 * * * *'
   workflow_dispatch:  # Ручной запуск из интерфейса GitHub
 
 jobs:
@@ -11,13 +11,27 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write  # Нужно для коммита данных обратно в репозиторий
+      contents: write
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
+
+      - name: Start Tor proxy
+        run: |
+          sudo apt-get install -y tor -q
+          sudo service tor start
+          # Ждём пока Tor установит соединение
+          for i in $(seq 1 12); do
+            sleep 5
+            if curl -s --socks5-hostname 127.0.0.1:9050 --max-time 10 https://check.torproject.org/api/ip 2>/dev/null | grep -q '"IsTor":true'; then
+              echo "Tor connected successfully"
+              break
+            fi
+            echo "Waiting for Tor... ($i/12)"
+          done
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,14 +50,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Добавляем data/ только если папка существует и содержит файлы
           git add data/ 2>/dev/null || true
-          # Коммитим только если есть изменения
           if git diff --staged --quiet; then
             echo "No changes to commit"
           else
             git commit -m "data: $(date -u '+%Y-%m-%d %H:%M') UTC"
-            # Pull перед push на случай параллельных запусков
             git pull --rebase origin main 2>/dev/null || true
             git push origin HEAD
           fi
