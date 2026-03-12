@@ -142,9 +142,14 @@ Sub PollLog()
 
     If InStr(content, "##DONE##") > 0 And Not g_done Then
         g_done = True
-        document.getElementById("statusNote").innerText = "Done! Browser opened at http://localhost:8501"
+        document.getElementById("statusNote").innerText = "Done! Launching screener..."
         document.getElementById("btnInstall").disabled  = False
         document.getElementById("btnInstall").innerText = "Launch Screener Again"
+        ' Launch screener from user context (not elevated) so Python PATH works
+        Dim installDir
+        installDir = Trim(document.getElementById("installDir").value)
+        oShell.Run "cmd /c """ & installDir & "\run_screener.bat""", 0, False
+        window.setTimeout "OpenBrowser()", 5000
     End If
 
     If InStr(content, "##ERROR##") > 0 And Not g_done Then
@@ -152,6 +157,11 @@ Sub PollLog()
         document.getElementById("statusNote").innerText = "Error during install. Check log above."
         document.getElementById("btnInstall").disabled  = False
     End If
+End Sub
+
+Sub OpenBrowser()
+    oShell.Run "http://localhost:8501", 1, False
+    document.getElementById("statusNote").innerText = "Screener: http://localhost:8501"
 End Sub
 
 Sub WritePSScript(installDir, ghToken)
@@ -241,12 +251,6 @@ Sub WritePSScript(installDir, ghToken)
     f.WriteLine "Log 'Running first data collection...'"
     f.WriteLine "& $python (Join-Path $installDir 'scripts\collect_data.py') 2>&1 | ForEach-Object { Log $_ }"
     f.WriteLine ""
-    f.WriteLine "Log ''"
-    f.WriteLine "Log 'Starting screener...'"
-    f.WriteLine "$scrScript = Join-Path $installDir 'scripts\screener.py'"
-    f.WriteLine "Start-Process $python -ArgumentList ""-m streamlit run `""$scrScript`"""" -WindowStyle Hidden"
-    f.WriteLine "Start-Sleep 4"
-    f.WriteLine "Start-Process 'http://localhost:8501'"
     f.WriteLine ""
     f.WriteLine "Log ''"
     f.WriteLine "Log '=== Installation complete! ==='"
