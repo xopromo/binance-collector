@@ -11,14 +11,22 @@ import requests
 from pathlib import Path
 from datetime import datetime, timezone
 
-CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
-DATA_PATH   = Path(__file__).parent.parent / "data"
-LAST_PUSH_FILE = Path(__file__).parent.parent / ".last_push"
+BASE_DIR       = Path(__file__).parent.parent
+CONFIG_PATH    = BASE_DIR / "config.yaml"
+TOKEN_FILE     = BASE_DIR / "github_token.txt"
+DATA_PATH      = BASE_DIR / "data"
+LAST_PUSH_FILE = BASE_DIR / ".last_push"
 
 
 def load_config() -> dict:
     with open(CONFIG_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def load_token() -> str:
+    if TOKEN_FILE.exists():
+        return TOKEN_FILE.read_text(encoding="utf-8").strip()
+    return ""
 
 
 def get_last_push_time() -> float:
@@ -70,11 +78,14 @@ def push_file(filepath: Path, token: str, repo: str) -> bool:
 def main():
     config = load_config()
     github = config.get("github", {})
-    token = github.get("token", "")
+    token = load_token()
     repo  = github.get("repo", "")
 
-    if not token or not repo:
-        print("[ERR] GitHub token или repo не настроены в config.yaml")
+    if not token:
+        print("[ERR] Токен GitHub не найден. Запустите setup_windows.bat заново.")
+        return
+    if not repo:
+        print("[ERR] github.repo не задан в config.yaml")
         return
 
     last_push = get_last_push_time()
