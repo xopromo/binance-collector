@@ -142,14 +142,12 @@ Sub PollLog()
 
     If InStr(content, "##DONE##") > 0 And Not g_done Then
         g_done = True
-        document.getElementById("statusNote").innerText = "Done! Launching screener..."
+        document.getElementById("statusNote").innerText = "Done! Opening screener..."
         document.getElementById("btnInstall").disabled  = False
-        document.getElementById("btnInstall").innerText = "Launch Screener Again"
-        ' Launch screener from user context (not elevated) so Python PATH works
+        document.getElementById("btnInstall").innerText = "Open Screener Again"
         Dim installDir
         installDir = Trim(document.getElementById("installDir").value)
-        oShell.Run "cmd /c """ & installDir & "\run_screener.bat""", 0, False
-        window.setTimeout "OpenBrowser()", 5000
+        oShell.Run """" & installDir & "\screener.hta""", 1, False
     End If
 
     If InStr(content, "##ERROR##") > 0 And Not g_done Then
@@ -159,10 +157,6 @@ Sub PollLog()
     End If
 End Sub
 
-Sub OpenBrowser()
-    oShell.Run "http://localhost:8501", 1, False
-    document.getElementById("statusNote").innerText = "Screener: http://localhost:8501"
-End Sub
 
 Sub WritePSScript(installDir, ghToken)
     Dim f
@@ -254,7 +248,7 @@ Sub WritePSScript(installDir, ghToken)
     f.WriteLine ""
     f.WriteLine "Log ''"
     f.WriteLine "Log '=== Installation complete! ==='"
-    f.WriteLine "Log 'Screener: http://localhost:8501'"
+    f.WriteLine "Log 'Screener opens automatically (screener.hta)'"
     f.WriteLine "Log 'Data is collected every 5 min automatically.'"
     f.WriteLine "Add-Content -Path $logFile -Value '##DONE##' -Encoding UTF8"
     f.WriteLine ""

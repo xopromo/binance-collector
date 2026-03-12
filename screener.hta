@@ -1,0 +1,568 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Binance Screener</title>
+<HTA:APPLICATION
+    APPLICATIONNAME="BinanceScreener"
+    BORDER="thin"
+    CAPTION="yes"
+    MAXIMIZEBUTTON="yes"
+    MINIMIZEBUTTON="yes"
+    SCROLL="auto"
+    SINGLEINSTANCE="no"
+    WINDOWSTATE="maximize"
+/>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    font-size: 13px;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────────────── */
+#topbar {
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+}
+#topbar h1 { color: #58a6ff; font-size: 17px; flex: 1; }
+.meta      { color: #8b949e; font-size: 12px; white-space: nowrap; }
+.countdown { color: #484f58; font-size: 12px; white-space: nowrap; }
+
+#btnRefresh {
+    background: #21262d;
+    border: 1px solid #30363d;
+    color: #e6edf3;
+    padding: 5px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+}
+#btnRefresh:hover { background: #30363d; }
+
+/* ── Filters ──────────────────────────────────────────────────────────── */
+#filters {
+    background: #161b22;
+    border-bottom: 1px solid #21262d;
+    padding: 8px 20px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    position: fixed;
+    top: 41px; left: 0; right: 0;
+    z-index: 99;
+}
+.fg       { display: flex; align-items: center; gap: 6px; }
+.fg label { color: #8b949e; font-size: 12px; white-space: nowrap; }
+.fg input[type=checkbox] { cursor: pointer; width: 14px; height: 14px; }
+.fg input[type=number] {
+    width: 56px;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    color: #e6edf3;
+    padding: 3px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+.fg span { color: #484f58; }
+
+/* ── Main content ─────────────────────────────────────────────────────── */
+#main {
+    padding: 20px;
+    margin-top: 82px; /* topbar + filters */
+}
+
+/* ── Signal cards ─────────────────────────────────────────────────────── */
+.sec-head {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: #e6edf3;
+}
+#signals-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.scard {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 10px 14px;
+    min-width: 160px;
+}
+.scard-sym   { font-weight: bold; font-size: 14px; color: #58a6ff; }
+.scard-meta  { color: #8b949e; font-size: 11px; margin-top: 2px; }
+.scard-tags  { margin-top: 6px; display: flex; flex-wrap: wrap; gap: 3px; }
+
+#no-signals { color: #484f58; font-style: italic; font-size: 12px; padding: 6px 0; }
+
+/* ── Table ────────────────────────────────────────────────────────────── */
+#tbl-wrap { overflow-x: auto; }
+table    { width: 100%; border-collapse: collapse; font-size: 13px; }
+th {
+    background: #161b22;
+    color: #8b949e;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 2px solid #30363d;
+    font-weight: 500;
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+}
+th:hover    { color: #e6edf3; }
+td          { padding: 7px 12px; border-bottom: 1px solid #21262d; white-space: nowrap; }
+tr:hover td { background: #161b22; }
+
+/* ── Value colours ────────────────────────────────────────────────────── */
+.up   { color: #3fb950; }
+.dn   { color: #f85149; }
+.neu  { color: #8b949e; }
+.sym  { color: #58a6ff; font-weight: bold; }
+
+/* ── Signal tags ──────────────────────────────────────────────────────── */
+.tag {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: bold;
+    margin: 1px;
+}
+.tag-pump { background: #1b5e20; color: #69f0ae; }
+.tag-dump { background: #7f0000; color: #ff8a80; }
+.tag-ob   { background: #bf360c; color: #ffccbc; }
+.tag-os   { background: #1a237e; color: #c5cae9; }
+.tag-vol  { background: #4a148c; color: #e1bee7; }
+.tag-fund { background: #263238; color: #cfd8dc; }
+
+.divider { border: none; border-top: 1px solid #21262d; margin: 14px 0; }
+</style>
+</head>
+<body onload="init()">
+
+<!-- Top bar -->
+<div id="topbar">
+    <h1>&#128200; Binance Screener</h1>
+    <div class="meta">Updated: <span id="lastUpdate">&#8212;</span></div>
+    <div class="countdown">Refresh in <span id="cdNum">&#8212;</span>s</div>
+    <button id="btnRefresh" onclick="refresh()">&#8635; Refresh</button>
+</div>
+
+<!-- Filters -->
+<div id="filters">
+    <div class="fg">
+        <input type="checkbox" id="chkSig" onchange="render()">
+        <label for="chkSig">Only signals</label>
+    </div>
+    <div class="fg">
+        <label>Pump/Dump %:</label>
+        <input type="number" id="nPump" value="3" min="0.5" max="20" step="0.5" onchange="render()">
+    </div>
+    <div class="fg">
+        <label>Vol spike x:</label>
+        <input type="number" id="nVol" value="3" min="1" max="20" step="0.5" onchange="render()">
+    </div>
+    <div class="fg">
+        <label>RSI:</label>
+        <input type="number" id="nRsiMin" value="0"   min="0" max="100" step="5" style="width:50px" onchange="render()">
+        <span>&#8211;</span>
+        <input type="number" id="nRsiMax" value="100" min="0" max="100" step="5" style="width:50px" onchange="render()">
+    </div>
+    <div class="fg">
+        <label>Refresh (s):</label>
+        <input type="number" id="nRefresh" value="30" min="10" max="300" step="5" style="width:58px" onchange="resetTimer()">
+    </div>
+</div>
+
+<!-- Main -->
+<div id="main">
+    <div id="signals-section">
+        <div class="sec-head" id="sigHead">&#128680; Signals</div>
+        <div id="signals-grid"></div>
+        <div id="no-signals">No signals with current thresholds</div>
+    </div>
+
+    <hr class="divider">
+
+    <div class="sec-head" id="tblHead">All pairs</div>
+    <div id="tbl-wrap"></div>
+</div>
+
+<script language="JScript">
+// ── Globals ────────────────────────────────────────────────────────────────────
+var oFSO = new ActiveXObject("Scripting.FileSystemObject");
+var BASE  = "";
+var SYMS  = [];
+var INTV  = "5m";
+var CPH   = {"1m":60,"3m":20,"5m":12,"15m":4,"30m":2,"1h":1,"2h":1,"4h":1};
+var N1H   = 12;
+
+var allData  = [];
+var sortCol  = -1;
+var sortAsc  = true;
+var cdSec    = 30;
+var cdTimer  = null;
+
+// ── File helpers ───────────────────────────────────────────────────────────────
+function getBase() {
+    var p = location.pathname;
+    if (p.charAt(0) === "/") p = p.substring(1);
+    p = decodeURIComponent(p).replace(/\//g, "\\");
+    return oFSO.GetParentFolderName(p);
+}
+
+function readFile(path) {
+    try {
+        if (!oFSO.FileExists(path)) return null;
+        var f = oFSO.OpenTextFile(path, 1, false, -2);
+        var s = f.ReadAll();
+        f.Close();
+        return s;
+    } catch(e) { return null; }
+}
+
+function parseCSV(txt) {
+    if (!txt) return null;
+    txt = txt.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    var lines = [];
+    var raw = txt.split("\n");
+    for (var i = 0; i < raw.length; i++) {
+        if (raw[i].trim() !== "") lines.push(raw[i]);
+    }
+    if (lines.length < 2) return null;
+    var hdrs = lines[0].split(",");
+    for (var h = 0; h < hdrs.length; h++) hdrs[h] = hdrs[h].trim();
+    var rows = [];
+    for (var r = 1; r < lines.length; r++) {
+        var cols = lines[r].split(",");
+        var row  = {};
+        for (var c = 0; c < hdrs.length; c++) {
+            row[hdrs[c]] = cols[c] ? cols[c].trim() : "";
+        }
+        rows.push(row);
+    }
+    return rows;
+}
+
+// ── Config ─────────────────────────────────────────────────────────────────────
+function loadConfig() {
+    var txt = readFile(BASE + "\\config.yaml");
+    if (!txt) { setDefaults(); return; }
+    var lines = txt.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+    var inSpot = false, inIntv = false;
+    SYMS = []; INTV = "5m";
+    for (var i = 0; i < lines.length; i++) {
+        var l = lines[i];
+        if (/^spot_symbols:/.test(l))  { inSpot = true;  inIntv = false; continue; }
+        if (/^intervals:/.test(l))     { inIntv = true;  inSpot = false; continue; }
+        if (/^\w/.test(l))             { inSpot = false; inIntv = false; }
+        if (inSpot) { var m = l.match(/^\s+-\s+(\S+)/); if (m) SYMS.push(m[1]); }
+        if (inIntv) { var m2 = l.match(/^\s+-\s+(\S+)/); if (m2) INTV = m2[1]; }
+    }
+    if (SYMS.length === 0) setDefaults();
+    N1H = CPH[INTV] || 12;
+}
+
+function setDefaults() {
+    SYMS = ["BTCUSDT","ETHUSDT","BNBUSDT","SOLUSDT","XRPUSDT","DOGEUSDT",
+            "ADAUSDT","AVAXUSDT","LINKUSDT","DOTUSDT","LTCUSDT","MATICUSDT",
+            "UNIUSDT","ATOMUSDT","ETCUSDT","NEARUSDT","OPUSDT","ARBUSDT",
+            "INJUSDT","SHIBUSDT"];
+    INTV = "5m"; N1H = 12;
+}
+
+// ── RSI ────────────────────────────────────────────────────────────────────────
+function rsi(closes, period) {
+    if (!period) period = 14;
+    if (closes.length < period + 1) return null;
+    var alpha = 1.0 / period;
+    var ag = 0, al = 0, ok = false;
+    for (var i = 1; i < closes.length; i++) {
+        var d = closes[i] - closes[i-1];
+        var g = d > 0 ? d : 0;
+        var l = d < 0 ? -d : 0;
+        if (!ok) { ag = g; al = l; ok = true; }
+        else     { ag = alpha*g + (1-alpha)*ag; al = alpha*l + (1-alpha)*al; }
+    }
+    if (al === 0) return 100;
+    return 100 - 100 / (1 + ag / al);
+}
+
+// ── Load data ──────────────────────────────────────────────────────────────────
+function loadData() {
+    allData = [];
+    for (var s = 0; s < SYMS.length; s++) {
+        var sym = SYMS[s];
+        var tickRows = parseCSV(readFile(BASE + "\\data\\tickers\\" + sym + ".csv"));
+        var ohlcRows = parseCSV(readFile(BASE + "\\data\\ohlcv\\" + INTV + "\\" + sym + ".csv"));
+        var fundRows = parseCSV(readFile(BASE + "\\data\\futures\\funding_rates\\" + sym + ".csv"));
+
+        if (!tickRows || tickRows.length === 0) continue;
+
+        var last     = tickRows[tickRows.length - 1];
+        var price    = parseFloat(last["price"])          || 0;
+        var ch24     = parseFloat(last["change_pct_24h"]) || 0;
+
+        var rsiVal   = null, ch1h = null, volSpk = null, fund = null;
+
+        if (ohlcRows && ohlcRows.length >= Math.max(15, N1H + 1)) {
+            var closes = [];
+            for (var i = 0; i < ohlcRows.length; i++) closes.push(parseFloat(ohlcRows[i]["close"]));
+
+            var rv = rsi(closes, 14);
+            rsiVal = rv !== null ? Math.round(rv * 10) / 10 : null;
+
+            var prev = closes[closes.length - (N1H + 1)];
+            var curr = closes[closes.length - 1];
+            if (prev > 0) ch1h = Math.round((curr - prev) / prev * 10000) / 100;
+
+            if ("volume" in ohlcRows[0]) {
+                var vols = [];
+                for (var j = 0; j < ohlcRows.length; j++) vols.push(parseFloat(ohlcRows[j]["volume"]));
+                var slice = vols.slice(-21, -1);
+                var sum = 0;
+                for (var k = 0; k < slice.length; k++) sum += slice[k];
+                var avg = slice.length > 0 ? sum / slice.length : 0;
+                if (avg > 0) volSpk = Math.round(vols[vols.length-1] / avg * 100) / 100;
+            }
+        }
+
+        if (fundRows && fundRows.length > 0) {
+            var fr = parseFloat(fundRows[fundRows.length-1]["funding_rate"]);
+            if (!isNaN(fr)) fund = Math.round(fr * 1000000) / 10000;
+        }
+
+        allData.push({
+            sym:  sym.replace("USDT",""),
+            full: sym,
+            price: price, ch24: ch24, ch1h: ch1h,
+            rsi: rsiVal, vol: volSpk, fund: fund
+        });
+    }
+
+    // timestamp
+    var now = new Date();
+    function pad(n) { return n < 10 ? "0"+n : ""+n; }
+    document.getElementById("lastUpdate").innerText =
+        pad(now.getUTCHours())+":"+pad(now.getUTCMinutes())+":"+pad(now.getUTCSeconds())+" UTC";
+
+    render();
+}
+
+// ── Signals ────────────────────────────────────────────────────────────────────
+function getSignals(row, thr) {
+    var out = [];
+    var c = row.ch1h, rv = row.rsi, v = row.vol, f = row.fund;
+    if (c !== null) {
+        if      (c >= thr.pump*1.5)  out.push({l:"PUMP",        c:"pump"});
+        else if (c >= thr.pump)      out.push({l:"PUMP+",       c:"pump"});
+        else if (c <= -thr.pump*1.5) out.push({l:"DUMP",        c:"dump"});
+        else if (c <= -thr.pump)     out.push({l:"DUMP+",       c:"dump"});
+    }
+    if (rv !== null) {
+        if      (rv >= 75) out.push({l:"OVERBOUGHT", c:"ob"});
+        else if (rv >= 70) out.push({l:"OB",         c:"ob"});
+        else if (rv <= 25) out.push({l:"OVERSOLD",   c:"os"});
+        else if (rv <= 30) out.push({l:"OS",         c:"os"});
+    }
+    if (v !== null && v >= thr.vol) out.push({l:"VOL x"+v.toFixed(1), c:"vol"});
+    if (f !== null) {
+        if      (f >= 0.05)  out.push({l:"FUND+", c:"fund"});
+        else if (f <= -0.05) out.push({l:"FUND-", c:"fund"});
+    }
+    return out;
+}
+
+// ── Formatting ─────────────────────────────────────────────────────────────────
+function fPrice(p) {
+    if (p === null || isNaN(p)) return "&#8212;";
+    if (p >= 1000) return "$" + p.toFixed(2);
+    if (p >= 1)    return "$" + p.toFixed(4);
+    return "$" + p.toFixed(6);
+}
+function fPct(v) {
+    if (v === null || isNaN(v)) return "&#8212;";
+    return (v > 0 ? "+" : "") + v.toFixed(2) + "%";
+}
+function pcls(v) { return (v > 0) ? "up" : (v < 0) ? "dn" : "neu"; }
+function rcls(v) { if (v === null) return ""; return v >= 70 ? "dn" : v <= 30 ? "up" : ""; }
+
+function tags(arr) {
+    var h = "";
+    for (var i = 0; i < arr.length; i++)
+        h += '<span class="tag tag-'+arr[i].c+'">'+arr[i].l+'</span>';
+    return h;
+}
+
+// ── Render ─────────────────────────────────────────────────────────────────────
+function render() {
+    var thr = {
+        pump: parseFloat(document.getElementById("nPump").value)    || 3,
+        vol:  parseFloat(document.getElementById("nVol").value)     || 3,
+        rMin: parseFloat(document.getElementById("nRsiMin").value)  || 0,
+        rMax: parseFloat(document.getElementById("nRsiMax").value)  || 100
+    };
+    var onlySig = document.getElementById("chkSig").checked;
+
+    // filter + attach signals
+    var filtered = [];
+    for (var i = 0; i < allData.length; i++) {
+        var row = allData[i];
+        var sigs = getSignals(row, thr);
+        var rOk  = (row.rsi === null) || (row.rsi >= thr.rMin && row.rsi <= thr.rMax);
+        if (!rOk) continue;
+        if (onlySig && sigs.length === 0) continue;
+        filtered.push({row: row, sigs: sigs});
+    }
+
+    // ── Signal cards ────────────────────────────────────────────────────────────
+    var alerts = [];
+    for (var j = 0; j < filtered.length; j++) {
+        if (filtered[j].sigs.length > 0) alerts.push(filtered[j]);
+    }
+    document.getElementById("sigHead").innerText = "\uD83D\uDEA8 Signals ("+alerts.length+")";
+
+    var grid = document.getElementById("signals-grid");
+    var noSig = document.getElementById("no-signals");
+    if (alerts.length === 0) {
+        grid.innerHTML = "";
+        noSig.style.display = "";
+    } else {
+        noSig.style.display = "none";
+        var gh = "";
+        for (var k = 0; k < alerts.length; k++) {
+            var r   = alerts[k].row;
+            var sg  = alerts[k].sigs;
+            var c1h = r.ch1h !== null ? fPct(r.ch1h) : "&#8212;";
+            var rv  = r.rsi  !== null ? " &middot; RSI "+r.rsi.toFixed(0) : "";
+            gh += '<div class="scard">' +
+                  '<div class="scard-sym">'+r.sym+'</div>' +
+                  '<div class="scard-meta">'+fPrice(r.price)+' &middot; 1h: '+c1h+rv+'</div>' +
+                  '<div class="scard-tags">'+tags(sg)+'</div>' +
+                  '</div>';
+        }
+        grid.innerHTML = gh;
+    }
+
+    // ── Table ────────────────────────────────────────────────────────────────────
+    document.getElementById("tblHead").innerText = "All pairs ("+filtered.length+")";
+
+    var COLS = [
+        {k:"sym",   l:"Symbol",  r:false},
+        {k:"price", l:"Price",   r:true},
+        {k:"ch24",  l:"24h %",   r:true},
+        {k:"ch1h",  l:"1h %",    r:true},
+        {k:"rsi",   l:"RSI",     r:true},
+        {k:"vol",   l:"Vol x",   r:true},
+        {k:"fund",  l:"Fund %",  r:true},
+        {k:"_sig",  l:"Signals", r:false}
+    ];
+
+    var thead = "<thead><tr>";
+    for (var c = 0; c < COLS.length; c++) {
+        var arrow = sortCol === c ? (sortAsc ? " &#8593;" : " &#8595;") : "";
+        thead += "<th onclick=\"sortBy("+c+")\">" + COLS[c].l + arrow + "</th>";
+    }
+    thead += "</tr></thead>";
+
+    // sort
+    var sorted = filtered.slice();
+    if (sortCol >= 0 && sortCol < COLS.length) {
+        var key = COLS[sortCol].k;
+        var asc = sortAsc;
+        sorted.sort(function(a, b) {
+            var av = (key === "_sig") ? a.sigs.length : a.row[key];
+            var bv = (key === "_sig") ? b.sigs.length : b.row[key];
+            if (av === null || av === undefined) av = asc ? 1e18 : -1e18;
+            if (bv === null || bv === undefined) bv = asc ? 1e18 : -1e18;
+            if (typeof av === "string") return asc ? av.localeCompare(bv) : bv.localeCompare(av);
+            return asc ? av - bv : bv - av;
+        });
+    }
+
+    var tbody = "<tbody>";
+    for (var r = 0; r < sorted.length; r++) {
+        var row  = sorted[r].row;
+        var sg   = sorted[r].sigs;
+        var rvD  = row.rsi  !== null ? row.rsi.toFixed(1) : "&#8212;";
+        var volD = row.vol  !== null ? row.vol.toFixed(2)+"x" : "&#8212;";
+        var frD  = row.fund !== null ? (row.fund>0?"+":"")+row.fund.toFixed(4)+"%" : "&#8212;";
+        var sgH  = sg.length > 0 ? tags(sg) : '<span class="neu">&#8212;</span>';
+
+        tbody += "<tr>" +
+            '<td class="sym">'+row.sym+'</td>' +
+            '<td style="text-align:right">'+fPrice(row.price)+'</td>' +
+            '<td style="text-align:right" class="'+pcls(row.ch24)+'">'+fPct(row.ch24)+'</td>' +
+            '<td style="text-align:right" class="'+pcls(row.ch1h)+'">'+fPct(row.ch1h)+'</td>' +
+            '<td style="text-align:right" class="'+rcls(row.rsi)+'">'+rvD+'</td>' +
+            '<td style="text-align:right">'+volD+'</td>' +
+            '<td style="text-align:right" class="'+pcls(row.fund)+'">'+frD+'</td>' +
+            '<td>'+sgH+'</td>' +
+            '</tr>';
+    }
+    tbody += "</tbody>";
+
+    document.getElementById("tbl-wrap").innerHTML =
+        '<table>' + thead + tbody + '</table>';
+}
+
+// ── Sort ───────────────────────────────────────────────────────────────────────
+function sortBy(col) {
+    if (sortCol === col) sortAsc = !sortAsc;
+    else { sortCol = col; sortAsc = true; }
+    render();
+}
+
+// ── Timer ──────────────────────────────────────────────────────────────────────
+function resetTimer() {
+    cdSec = parseInt(document.getElementById("nRefresh").value) || 30;
+    document.getElementById("cdNum").innerText = cdSec;
+}
+
+function startTimer() {
+    if (cdTimer) clearInterval(cdTimer);
+    cdSec = parseInt(document.getElementById("nRefresh").value) || 30;
+    cdTimer = setInterval(function() {
+        cdSec--;
+        document.getElementById("cdNum").innerText = cdSec;
+        if (cdSec <= 0) {
+            cdSec = parseInt(document.getElementById("nRefresh").value) || 30;
+            loadData();
+        }
+    }, 1000);
+}
+
+function refresh() {
+    cdSec = parseInt(document.getElementById("nRefresh").value) || 30;
+    loadData();
+}
+
+// ── Init ───────────────────────────────────────────────────────────────────────
+function init() {
+    window.resizeTo(1280, 800);
+    window.moveTo(
+        Math.max(0, (screen.availWidth  - 1280) / 2),
+        Math.max(0, (screen.availHeight - 800)  / 2)
+    );
+    BASE = getBase();
+    loadConfig();
+    loadData();
+    startTimer();
+}
+</script>
+</body>
+</html>
