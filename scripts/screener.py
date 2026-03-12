@@ -7,7 +7,7 @@ import time
 
 BASE = Path(__file__).parent.parent
 
-with open(BASE / "config.yaml") as f:
+with open(BASE / "config.yaml", encoding="utf-8") as f:
     cfg = yaml.safe_load(f)
 
 SYMBOLS = cfg.get("spot_symbols", [])
