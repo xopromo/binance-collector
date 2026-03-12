@@ -1,10 +1,9 @@
 """
-Binance Data Collector — через Tor-прокси (обход US geo-block)
-Собирает: спотовые тикеры, OHLCV 5m свечи, фьючерсный фандинг и открытый интерес.
-Данные сохраняются в CSV-файлы с дедупликацией по timestamp.
+Binance Data Collector — локальный запуск (Windows/Mac/Linux)
+Собирает: спотовые тикеры, OHLCV свечи, фьючерсный фандинг и открытый интерес.
+Данные сохраняются в CSV-файлы в папке data/.
 """
 
-import os
 import time
 import yaml
 import requests
@@ -12,21 +11,17 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime, timezone
 
-CONFIG_PATH = Path("config.yaml")
-DATA_PATH = Path("data")
+CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
+DATA_PATH   = Path(__file__).parent.parent / "data"
 
 BINANCE_SPOT    = "https://api.binance.com"
 BINANCE_FUTURES = "https://fapi.binance.com"
 
-# Tor SOCKS5 прокси — направляет трафик через EU/Asia, где Binance не заблокирован
-TOR_PROXY = "socks5h://127.0.0.1:9050"
-PROXIES = {"http": TOR_PROXY, "https": TOR_PROXY}
-
-REQUEST_DELAY = 0.3  # секунды между запросами
+REQUEST_DELAY = 0.2  # секунды между запросами
 
 
 def load_config() -> dict:
-    with open(CONFIG_PATH) as f:
+    with open(CONFIG_PATH, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
@@ -47,8 +42,8 @@ def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def get(url: str, params: dict = None, timeout: int = 30) -> dict | list:
-    r = requests.get(url, params=params, proxies=PROXIES, timeout=timeout)
+def get(url: str, params: dict = None, timeout: int = 15):
+    r = requests.get(url, params=params, timeout=timeout)
     r.raise_for_status()
     return r.json()
 
@@ -77,11 +72,10 @@ def collect_spot_ticker(symbol: str):
 
 def collect_ohlcv(symbol: str, interval: str):
     try:
-        # limit=3: берём последние 3 свечи, отбрасываем незакрытую последнюю
         data = get(f"{BINANCE_SPOT}/api/v3/klines",
                    {"symbol": symbol, "interval": interval, "limit": 3})
         rows = []
-        for k in data[:-1]:
+        for k in data[:-1]:  # последняя свеча незакрыта — пропускаем
             open_time = datetime.fromtimestamp(k[0] / 1000, tz=timezone.utc)
             rows.append({
                 "timestamp":    open_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -156,7 +150,7 @@ def main():
     futures_symbols = config.get("futures_symbols", [])
     intervals       = config.get("intervals", ["5m"])
 
-    print(f"\n=== Binance Collector (via Tor) | {now_utc()} ===")
+    print(f"\n=== Binance Collector | {now_utc()} ===")
     print(f"Spot: {len(spot_symbols)} | Futures: {len(futures_symbols)} | Intervals: {intervals}\n")
 
     print("-- Spot tickers --")
