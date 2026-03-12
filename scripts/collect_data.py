@@ -1,7 +1,10 @@
 """
-Binance Data Collector
+Crypto Data Collector — Bybit API
 Собирает: спотовые тикеры, OHLCV свечи, фьючерсный фандинг и открытый интерес.
 Данные сохраняются в CSV-файлы с дедупликацией по timestamp.
+
+Примечание: использует Bybit вместо Binance — те же самые пары (BTCUSDT, ETHUSDT и т.д.),
+те же типы данных. Binance блокирует запросы с серверов США (GitHub Actions).
 """
 
 import time
@@ -14,8 +17,14 @@ from datetime import datetime, timezone
 CONFIG_PATH = Path("config.yaml")
 DATA_PATH = Path("data")
 
-BINANCE_SPOT = "https://api.binance.com"
-BINANCE_FUTURES = "https://fapi.binance.com"
+BYBIT_API = "https://api.bybit.com"
+
+# Перевод таймфреймов из стандартных в формат Bybit
+INTERVAL_MAP = {
+    "1m": "1", "3m": "3", "5m": "5", "15m": "15", "30m": "30",
+    "1h": "60", "2h": "120", "4h": "240", "6h": "360", "12h": "720",
+    "1d": "D", "1w": "W",
+}
 
 
 def load_config() -> dict:
@@ -40,7 +49,7 @@ def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def get(url: str, params: dict = None, timeout: int = 10):
+def get(url: str, params: dict = None, timeout: int = 10) -> dict:
     r = requests.get(url, params=params, timeout=timeout)
     r.raise_for_status()
     return r.json()
@@ -50,18 +59,20 @@ def get(url: str, params: dict = None, timeout: int = 10):
 
 def collect_spot_ticker(symbol: str):
     try:
-        d = get(f"{BINANCE_SPOT}/api/v3/ticker/24hr", {"symbol": symbol})
+        d = get(f"{BYBIT_API}/v5/market/tickers",
+                {"category": "spot", "symbol": symbol})
+        item = d["result"]["list"][0]
         row = {
             "timestamp":       now_utc(),
-            "price":           d["lastPrice"],
-            "volume_usdt_24h": d["quoteVolume"],
-            "change_pct_24h":  d["priceChangePercent"],
-            "high_24h":        d["highPrice"],
-            "low_24h":         d["lowPrice"],
-            "trades_24h":      d["count"],
+            "price":           item["lastPrice"],
+            "volume_usdt_24h": item["turnover24h"],
+            "change_pct_24h":  item["price24hPcnt"],
+            "high_24h":        item["highPrice24h"],
+            "low_24h":         item["lowPrice24h"],
+            "volume_24h":      item["volume24h"],
         }
         append_csv(DATA_PATH / "spot" / "tickers" / f"{symbol}.csv", pd.DataFrame([row]))
-        print(f"  [OK] ticker {symbol}: {d['lastPrice']}")
+        print(f"  [OK] ticker {symbol}: {item['lastPrice']}")
     except Exception as e:
         print(f"  [ERR] ticker {symbol}: {e}")
 
@@ -69,13 +80,16 @@ def collect_spot_ticker(symbol: str):
 # ─── SPOT: СВЕЧИ OHLCV ───────────────────────────────────────────────────────
 
 def collect_ohlcv(symbol: str, interval: str):
+    bybit_interval = INTERVAL_MAP.get(interval, interval)
     try:
         # limit=3 — берём последние 3 свечи, последнюю (незакрытую) отбрасываем
-        data = get(f"{BINANCE_SPOT}/api/v3/klines",
-                   {"symbol": symbol, "interval": interval, "limit": 3})
+        d = get(f"{BYBIT_API}/v5/market/kline",
+                {"category": "spot", "symbol": symbol,
+                 "interval": bybit_interval, "limit": 3})
         rows = []
-        for k in data[:-1]:  # последняя свеча ещё не закрыта — пропускаем
-            open_time = datetime.fromtimestamp(k[0] / 1000, tz=timezone.utc)
+        # Bybit возвращает в порядке убывания времени, пропускаем первую (незакрытую)
+        for k in d["result"]["list"][1:]:
+            open_time = datetime.fromtimestamp(int(k[0]) / 1000, tz=timezone.utc)
             rows.append({
                 "timestamp":    open_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "open":         k[1],
@@ -83,8 +97,7 @@ def collect_ohlcv(symbol: str, interval: str):
                 "low":          k[3],
                 "close":        k[4],
                 "volume":       k[5],
-                "quote_volume": k[7],
-                "trades":       k[8],
+                "quote_volume": k[6],
             })
         if rows:
             append_csv(
@@ -100,22 +113,28 @@ def collect_ohlcv(symbol: str, interval: str):
 
 def collect_futures_funding(symbol: str):
     try:
-        d = get(f"{BINANCE_FUTURES}/fapi/v1/premiumIndex", {"symbol": symbol})
-        next_funding = datetime.fromtimestamp(
-            d["nextFundingTime"] / 1000, tz=timezone.utc
-        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        # Текущий тикер фьючерса — содержит mark price, index price, funding rate
+        d = get(f"{BYBIT_API}/v5/market/tickers",
+                {"category": "linear", "symbol": symbol})
+        item = d["result"]["list"][0]
+        next_ts = int(item.get("nextFundingTime", 0))
+        next_funding = (
+            datetime.fromtimestamp(next_ts / 1000, tz=timezone.utc)
+            .strftime("%Y-%m-%dT%H:%M:%SZ")
+            if next_ts else ""
+        )
         row = {
-            "timestamp":        now_utc(),
-            "mark_price":       d["markPrice"],
-            "index_price":      d["indexPrice"],
-            "funding_rate":     d["lastFundingRate"],
+            "timestamp":         now_utc(),
+            "mark_price":        item.get("markPrice", ""),
+            "index_price":       item.get("indexPrice", ""),
+            "funding_rate":      item.get("fundingRate", ""),
             "next_funding_time": next_funding,
         }
         append_csv(
             DATA_PATH / "futures" / "funding_rates" / f"{symbol}.csv",
             pd.DataFrame([row])
         )
-        print(f"  [OK] funding {symbol}: {d['lastFundingRate']}")
+        print(f"  [OK] funding {symbol}: {item.get('fundingRate', 'N/A')}")
     except Exception as e:
         print(f"  [ERR] funding {symbol}: {e}")
 
@@ -124,16 +143,24 @@ def collect_futures_funding(symbol: str):
 
 def collect_open_interest(symbol: str):
     try:
-        d = get(f"{BINANCE_FUTURES}/fapi/v1/openInterest", {"symbol": symbol})
+        d = get(f"{BYBIT_API}/v5/market/open-interest",
+                {"category": "linear", "symbol": symbol,
+                 "intervalTime": "5min", "limit": 1})
+        items = d["result"]["list"]
+        if not items:
+            print(f"  [SKIP] OI {symbol}: no data")
+            return
+        item = items[0]
+        ts = datetime.fromtimestamp(int(item["timestamp"]) / 1000, tz=timezone.utc)
         row = {
-            "timestamp":     now_utc(),
-            "open_interest": d["openInterest"],
+            "timestamp":     ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "open_interest": item["openInterest"],
         }
         append_csv(
             DATA_PATH / "futures" / "open_interest" / f"{symbol}.csv",
             pd.DataFrame([row])
         )
-        print(f"  [OK] OI {symbol}: {d['openInterest']}")
+        print(f"  [OK] OI {symbol}: {item['openInterest']}")
     except Exception as e:
         print(f"  [ERR] OI {symbol}: {e}")
 
@@ -146,32 +173,29 @@ def main():
     futures_symbols = config.get("futures_symbols", [])
     intervals       = config.get("intervals", ["5m"])
 
-    print(f"\n=== Binance Collector | {now_utc()} ===")
-    print(f"Spot: {len(spot_symbols)} symbols | Futures: {len(futures_symbols)} symbols | Intervals: {intervals}\n")
+    print(f"\n=== Crypto Collector (Bybit) | {now_utc()} ===")
+    print(f"Spot: {len(spot_symbols)} | Futures: {len(futures_symbols)} | Intervals: {intervals}\n")
 
-    # Спотовые тикеры
     print("-- Spot tickers --")
     for symbol in spot_symbols:
         collect_spot_ticker(symbol)
-        time.sleep(0.15)  # чтобы не превышать лимиты Binance API
+        time.sleep(0.1)
 
-    # OHLCV свечи
     print("\n-- OHLCV candles --")
     for symbol in spot_symbols:
         for interval in intervals:
             collect_ohlcv(symbol, interval)
-            time.sleep(0.15)
+            time.sleep(0.1)
 
-    # Фьючерсы
     print("\n-- Futures funding rates --")
     for symbol in futures_symbols:
         collect_futures_funding(symbol)
-        time.sleep(0.15)
+        time.sleep(0.1)
 
     print("\n-- Futures open interest --")
     for symbol in futures_symbols:
         collect_open_interest(symbol)
-        time.sleep(0.15)
+        time.sleep(0.1)
 
     print(f"\n=== Done ===\n")
 

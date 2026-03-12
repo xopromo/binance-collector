@@ -1,4 +1,4 @@
-name: Collect Binance Data
+name: Collect Crypto Data
 
 on:
   schedule:
@@ -36,7 +36,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/
+          # Добавляем data/ только если папка существует и содержит файлы
+          git add data/ 2>/dev/null || true
           # Коммитим только если есть изменения
           if git diff --staged --quiet; then
             echo "No changes to commit"
