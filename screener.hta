@@ -190,6 +190,8 @@ tr:hover td { background: #161b22; }
 
 <!-- Main -->
 <div id="main">
+    <div id="pathHint" style="display:none; color:#f0883e; font-size:12px; margin-bottom:14px; padding:8px 12px; background:#161b22; border:1px solid #f0883e; border-radius:6px;"></div>
+
     <div id="signals-section">
         <div class="sec-head" id="sigHead">&#128680; Signals</div>
         <div id="signals-grid"></div>
@@ -219,10 +221,12 @@ var cdTimer  = null;
 
 // ── File helpers ───────────────────────────────────────────────────────────────
 function getBase() {
-    var p = location.pathname;
-    if (p.charAt(0) === "/") p = p.substring(1);
+    // location.href в HTA = "file:///C:/path/to/screener.hta"
+    var href = location.href;
+    var p = href.replace(/^file:\/\/\//i, "");
     p = decodeURIComponent(p).replace(/\//g, "\\");
-    return oFSO.GetParentFolderName(p);
+    var last = p.lastIndexOf("\\");
+    return last >= 0 ? p.substring(0, last) : p;
 }
 
 function readFile(path) {
@@ -352,6 +356,15 @@ function loadData() {
             price: price, ch24: ch24, ch1h: ch1h,
             rsi: rsiVal, vol: volSpk, fund: fund
         });
+    }
+
+    // show path hint if no data found
+    var hint = document.getElementById("pathHint");
+    if (allData.length === 0) {
+        hint.style.display = "";
+        hint.innerText = "Data not found. Looking in: " + BASE + "\\data\\tickers\\";
+    } else {
+        hint.style.display = "none";
     }
 
     // timestamp
