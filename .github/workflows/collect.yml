@@ -2,8 +2,8 @@ name: Collect Crypto Data
 
 on:
   schedule:
-    # Каждые 5 минут (минимальный интервал GitHub Actions)
-    - cron: '*/5 * * * *'
+    # Каждый час в :05 минут
+    - cron: '5 * * * *'
   workflow_dispatch:  # Ручной запуск из интерфейса GitHub
 
 jobs:
@@ -44,6 +44,6 @@ jobs:
           else
             git commit -m "data: $(date -u '+%Y-%m-%d %H:%M') UTC"
             # Pull перед push на случай параллельных запусков
-            git pull --rebase origin main || git pull --rebase origin master
+            git pull --rebase origin main 2>/dev/null || true
             git push origin HEAD
           fi

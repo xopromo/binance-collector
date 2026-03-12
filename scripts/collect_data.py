@@ -1,10 +1,10 @@
 """
-Crypto Data Collector — Bybit API
-Собирает: спотовые тикеры, OHLCV свечи, фьючерсный фандинг и открытый интерес.
+Crypto Data Collector — CoinGecko API
+Собирает: тикеры (цена, объём, изменение 24ч) и свечи OHLCV (1ч).
 Данные сохраняются в CSV-файлы с дедупликацией по timestamp.
 
-Примечание: использует Bybit вместо Binance — те же самые пары (BTCUSDT, ETHUSDT и т.д.),
-те же типы данных. Binance блокирует запросы с серверов США (GitHub Actions).
+Источник: CoinGecko (агрегирует данные с Binance, Bybit и др.)
+Интервал свечей: 1h (минимум на бесплатном тарифе)
 """
 
 import time
@@ -16,15 +16,10 @@ from datetime import datetime, timezone
 
 CONFIG_PATH = Path("config.yaml")
 DATA_PATH = Path("data")
+COINGECKO = "https://api.coingecko.com/api/v3"
 
-BYBIT_API = "https://api.bybit.com"
-
-# Перевод таймфреймов из стандартных в формат Bybit
-INTERVAL_MAP = {
-    "1m": "1", "3m": "3", "5m": "5", "15m": "15", "30m": "30",
-    "1h": "60", "2h": "120", "4h": "240", "6h": "360", "12h": "720",
-    "1d": "D", "1w": "W",
-}
+# Пауза между запросами (бесплатный тариф CoinGecko — 30 запросов/мин)
+REQUEST_DELAY = 2.5
 
 
 def load_config() -> dict:
@@ -49,153 +44,103 @@ def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def get(url: str, params: dict = None, timeout: int = 10) -> dict:
-    r = requests.get(url, params=params, timeout=timeout)
+def get(url: str, params: dict = None, timeout: int = 15) -> dict:
+    headers = {"Accept": "application/json", "User-Agent": "crypto-collector/1.0"}
+    r = requests.get(url, params=params, headers=headers, timeout=timeout)
     r.raise_for_status()
     return r.json()
 
 
-# ─── SPOT: ТИКЕРЫ ────────────────────────────────────────────────────────────
+# ─── ТИКЕРЫ (все сразу одним запросом) ──────────────────────────────────────
 
-def collect_spot_ticker(symbol: str):
+def collect_tickers(coins: list):
+    """
+    Один запрос — все 20 монет.
+    Поля: цена, объём, изм. 24ч, max/min 24ч, market cap.
+    """
+    ids = ",".join(c["id"] for c in coins)
+    id_to_symbol = {c["id"]: c["symbol"] for c in coins}
     try:
-        d = get(f"{BYBIT_API}/v5/market/tickers",
-                {"category": "spot", "symbol": symbol})
-        item = d["result"]["list"][0]
-        row = {
-            "timestamp":       now_utc(),
-            "price":           item["lastPrice"],
-            "volume_usdt_24h": item["turnover24h"],
-            "change_pct_24h":  item["price24hPcnt"],
-            "high_24h":        item["highPrice24h"],
-            "low_24h":         item["lowPrice24h"],
-            "volume_24h":      item["volume24h"],
-        }
-        append_csv(DATA_PATH / "spot" / "tickers" / f"{symbol}.csv", pd.DataFrame([row]))
-        print(f"  [OK] ticker {symbol}: {item['lastPrice']}")
+        items = get(f"{COINGECKO}/coins/markets", {
+            "vs_currency": "usd",
+            "ids": ids,
+            "order": "market_cap_desc",
+            "price_change_percentage": "1h,24h",
+        })
+        ts = now_utc()
+        for item in items:
+            symbol = id_to_symbol.get(item["id"], item["symbol"].upper() + "USDT")
+            row = {
+                "timestamp":        ts,
+                "price":            item["current_price"],
+                "market_cap":       item["market_cap"],
+                "volume_usdt_24h":  item["total_volume"],
+                "change_pct_1h":    item.get("price_change_percentage_1h_in_currency", ""),
+                "change_pct_24h":   item.get("price_change_percentage_24h_in_currency", ""),
+                "high_24h":         item["high_24h"],
+                "low_24h":          item["low_24h"],
+                "ath":              item["ath"],
+                "atl":              item["atl"],
+            }
+            append_csv(DATA_PATH / "tickers" / f"{symbol}.csv", pd.DataFrame([row]))
+            print(f"  [OK] ticker {symbol}: ${item['current_price']}")
+        time.sleep(REQUEST_DELAY)
     except Exception as e:
-        print(f"  [ERR] ticker {symbol}: {e}")
+        print(f"  [ERR] tickers: {e}")
+        time.sleep(REQUEST_DELAY)
 
 
-# ─── SPOT: СВЕЧИ OHLCV ───────────────────────────────────────────────────────
+# ─── OHLCV СВЕЧИ (1ч) ────────────────────────────────────────────────────────
 
-def collect_ohlcv(symbol: str, interval: str):
-    bybit_interval = INTERVAL_MAP.get(interval, interval)
+def collect_ohlcv(coin_id: str, symbol: str):
+    """
+    Запрашивает почасовые OHLCV свечи за последние 2 дня.
+    CoinGecko при days=2 возвращает hourly-данные.
+    """
     try:
-        # limit=3 — берём последние 3 свечи, последнюю (незакрытую) отбрасываем
-        d = get(f"{BYBIT_API}/v5/market/kline",
-                {"category": "spot", "symbol": symbol,
-                 "interval": bybit_interval, "limit": 3})
+        data = get(f"{COINGECKO}/coins/{coin_id}/ohlc", {
+            "vs_currency": "usd",
+            "days": "2",
+        })
         rows = []
-        # Bybit возвращает в порядке убывания времени, пропускаем первую (незакрытую)
-        for k in d["result"]["list"][1:]:
-            open_time = datetime.fromtimestamp(int(k[0]) / 1000, tz=timezone.utc)
+        for k in data:
+            ts = datetime.fromtimestamp(k[0] / 1000, tz=timezone.utc)
             rows.append({
-                "timestamp":    open_time.strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "open":         k[1],
-                "high":         k[2],
-                "low":          k[3],
-                "close":        k[4],
-                "volume":       k[5],
-                "quote_volume": k[6],
+                "timestamp": ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "open":      k[1],
+                "high":      k[2],
+                "low":       k[3],
+                "close":     k[4],
             })
         if rows:
             append_csv(
-                DATA_PATH / "spot" / "ohlcv" / interval / f"{symbol}.csv",
+                DATA_PATH / "ohlcv" / "1h" / f"{symbol}.csv",
                 pd.DataFrame(rows)
             )
-            print(f"  [OK] ohlcv {symbol} {interval}: +{len(rows)} candle(s)")
+            print(f"  [OK] ohlcv {symbol} 1h: {len(rows)} candles")
+        time.sleep(REQUEST_DELAY)
     except Exception as e:
-        print(f"  [ERR] ohlcv {symbol} {interval}: {e}")
-
-
-# ─── FUTURES: ФАНДИНГ + MARK PRICE ───────────────────────────────────────────
-
-def collect_futures_funding(symbol: str):
-    try:
-        # Текущий тикер фьючерса — содержит mark price, index price, funding rate
-        d = get(f"{BYBIT_API}/v5/market/tickers",
-                {"category": "linear", "symbol": symbol})
-        item = d["result"]["list"][0]
-        next_ts = int(item.get("nextFundingTime", 0))
-        next_funding = (
-            datetime.fromtimestamp(next_ts / 1000, tz=timezone.utc)
-            .strftime("%Y-%m-%dT%H:%M:%SZ")
-            if next_ts else ""
-        )
-        row = {
-            "timestamp":         now_utc(),
-            "mark_price":        item.get("markPrice", ""),
-            "index_price":       item.get("indexPrice", ""),
-            "funding_rate":      item.get("fundingRate", ""),
-            "next_funding_time": next_funding,
-        }
-        append_csv(
-            DATA_PATH / "futures" / "funding_rates" / f"{symbol}.csv",
-            pd.DataFrame([row])
-        )
-        print(f"  [OK] funding {symbol}: {item.get('fundingRate', 'N/A')}")
-    except Exception as e:
-        print(f"  [ERR] funding {symbol}: {e}")
-
-
-# ─── FUTURES: ОТКРЫТЫЙ ИНТЕРЕС ────────────────────────────────────────────────
-
-def collect_open_interest(symbol: str):
-    try:
-        d = get(f"{BYBIT_API}/v5/market/open-interest",
-                {"category": "linear", "symbol": symbol,
-                 "intervalTime": "5min", "limit": 1})
-        items = d["result"]["list"]
-        if not items:
-            print(f"  [SKIP] OI {symbol}: no data")
-            return
-        item = items[0]
-        ts = datetime.fromtimestamp(int(item["timestamp"]) / 1000, tz=timezone.utc)
-        row = {
-            "timestamp":     ts.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "open_interest": item["openInterest"],
-        }
-        append_csv(
-            DATA_PATH / "futures" / "open_interest" / f"{symbol}.csv",
-            pd.DataFrame([row])
-        )
-        print(f"  [OK] OI {symbol}: {item['openInterest']}")
-    except Exception as e:
-        print(f"  [ERR] OI {symbol}: {e}")
+        print(f"  [ERR] ohlcv {symbol}: {e}")
+        time.sleep(REQUEST_DELAY)
 
 
 # ─── MAIN ─────────────────────────────────────────────────────────────────────
 
 def main():
     config = load_config()
-    spot_symbols    = config.get("spot_symbols", [])
-    futures_symbols = config.get("futures_symbols", [])
-    intervals       = config.get("intervals", ["5m"])
+    coins = config.get("coins", [])
 
-    print(f"\n=== Crypto Collector (Bybit) | {now_utc()} ===")
-    print(f"Spot: {len(spot_symbols)} | Futures: {len(futures_symbols)} | Intervals: {intervals}\n")
+    print(f"\n=== Crypto Collector (CoinGecko) | {now_utc()} ===")
+    print(f"Coins: {len(coins)}\n")
 
-    print("-- Spot tickers --")
-    for symbol in spot_symbols:
-        collect_spot_ticker(symbol)
-        time.sleep(0.1)
+    # Тикеры — один запрос на все монеты
+    print("-- Tickers --")
+    collect_tickers(coins)
 
-    print("\n-- OHLCV candles --")
-    for symbol in spot_symbols:
-        for interval in intervals:
-            collect_ohlcv(symbol, interval)
-            time.sleep(0.1)
-
-    print("\n-- Futures funding rates --")
-    for symbol in futures_symbols:
-        collect_futures_funding(symbol)
-        time.sleep(0.1)
-
-    print("\n-- Futures open interest --")
-    for symbol in futures_symbols:
-        collect_open_interest(symbol)
-        time.sleep(0.1)
+    # OHLCV — по одному запросу на монету
+    print("\n-- OHLCV 1h candles --")
+    for coin in coins:
+        collect_ohlcv(coin["id"], coin["symbol"])
 
     print(f"\n=== Done ===\n")
 
