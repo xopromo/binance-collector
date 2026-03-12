@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .DS_Store
+# Токен GitHub хранится только локально, не в git
+github_token.txt
+.last_push
+logs/
