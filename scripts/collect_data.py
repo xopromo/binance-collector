@@ -19,7 +19,8 @@ DATA_PATH = Path("data")
 COINGECKO = "https://api.coingecko.com/api/v3"
 
 # Пауза между запросами (бесплатный тариф CoinGecko — 30 запросов/мин)
-REQUEST_DELAY = 4.0  # CoinGecko free: 30 req/min → 2s min, 4s safe
+REQUEST_DELAY = 7.0   # CoinGecko free (no key): ~8 req/min safe
+RETRY_DELAY   = 65.0  # Пауза при ошибке 429 (сброс минутного лимита)
 
 
 def load_config() -> dict:
@@ -46,9 +47,16 @@ def now_utc() -> str:
 
 def get(url: str, params: dict = None, timeout: int = 15) -> dict:
     headers = {"Accept": "application/json", "User-Agent": "crypto-collector/1.0"}
-    r = requests.get(url, params=params, headers=headers, timeout=timeout)
+    for attempt in range(3):
+        r = requests.get(url, params=params, headers=headers, timeout=timeout)
+        if r.status_code == 429:
+            print(f"    rate limit (429), ждём {int(RETRY_DELAY)}с...")
+            time.sleep(RETRY_DELAY)
+            continue
+        r.raise_for_status()
+        return r.json()
     r.raise_for_status()
-    return r.json()
+    return {}
 
 
 # ─── ТИКЕРЫ (все сразу одним запросом) ──────────────────────────────────────
