@@ -561,7 +561,7 @@ def live_view():
                 )
                 c1h     = f"{row['1h %']:+.2f}%" if pd.notna(row["1h %"]) else "—"
                 rsi_str = f"RSI {row['RSI']:.0f}" if pd.notna(row["RSI"]) else ""
-                tv_url  = f"https://www.tradingview.com/chart/?symbol=BYBIT:{row['_symbol']}.P"
+                tv_url  = f"https://www.tradingview.com/chart/?symbol=BYBIT:{row['Symbol']}USDT.P"
                 st.markdown(
                     f"**{row['Symbol']}** `${row['Price']:,.4f}` "
                     f"<a href='{tv_url}' target='_blank' style='font-size:12px;text-decoration:none;'>↗ TV</a>  \n"
