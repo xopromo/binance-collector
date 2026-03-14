@@ -6,6 +6,7 @@ import yaml
 import time
 import subprocess
 import sys
+import requests
 
 BASE = Path(__file__).parent.parent
 
@@ -43,7 +44,32 @@ def load_csv(path: Path):
         return None
 
 
+COMMISSION_PCT = 0.1  # Binance spot taker, %
+
+
+@st.cache_data(ttl=3600)
+def fetch_tick_sizes(symbols: tuple) -> dict:
+    """Fetch tick size for each symbol from Binance exchangeInfo. Cached 1h."""
+    try:
+        params = str(list(symbols)).replace("'", '"')
+        r = requests.get(
+            "https://api.binance.com/api/v3/exchangeInfo",
+            params={"symbols": params},
+            timeout=10,
+        )
+        r.raise_for_status()
+        result = {}
+        for s in r.json().get("symbols", []):
+            for f in s.get("filters", []):
+                if f["filterType"] == "PRICE_FILTER":
+                    result[s["symbol"]] = float(f["tickSize"])
+        return result
+    except Exception:
+        return {}
+
+
 def get_screener_data() -> pd.DataFrame:
+    tick_sizes = fetch_tick_sizes(tuple(SYMBOLS))
     rows = []
     for symbol in SYMBOLS:
         ticker = load_csv(BASE / "data" / "tickers" / f"{symbol}.csv")
@@ -115,15 +141,30 @@ def get_screener_data() -> pd.DataFrame:
             elif funding_rate <= -0.05:
                 signals.append("FUND-")
 
+        tick_size = tick_sizes.get(symbol)
+        tick_pct = round(tick_size / price * 100, 6) if tick_size and price > 0 else None
+        comm_ticks = round(COMMISSION_PCT / tick_pct, 1) if tick_pct and tick_pct > 0 else None
+
+        avg_range_pct = None
+        if ohlcv is not None and len(ohlcv) >= 10 and "high" in ohlcv.columns and "low" in ohlcv.columns:
+            highs = ohlcv["high"].astype(float).iloc[-20:]
+            lows  = ohlcv["low"].astype(float).iloc[-20:]
+            closes_r = ohlcv["close"].astype(float).iloc[-20:]
+            ranges = (highs - lows) / closes_r * 100
+            avg_range_pct = round(float(ranges.mean()), 3)
+
         rows.append({
-            "Symbol": symbol.replace("USDT", ""),
-            "Price": price,
-            "24h %": change_24h,
-            "1h %": change_1h,
-            "RSI": rsi,
-            "Vol x": vol_spike,
-            "Fund %": funding_rate,
-            "Signals": signals,
+            "Symbol":     symbol.replace("USDT", ""),
+            "Price":      price,
+            "24h %":      change_24h,
+            "1h %":       change_1h,
+            "RSI":        rsi,
+            "Vol x":      vol_spike,
+            "Fund %":     funding_rate,
+            "Tick %":     tick_pct,
+            "Comm ticks": comm_ticks,
+            "Avg range %": avg_range_pct,
+            "Signals":    signals,
         })
 
     return pd.DataFrame(rows)
@@ -315,36 +356,68 @@ with placeholder.container():
 
     st.divider()
 
-    # ── Table ──────────────────────────────────────────────────────────────────
-    st.subheader(f"All pairs ({len(filtered)})")
+    # ── Tabs: main table + tick analysis ───────────────────────────────────────
+    tab_main, tab_tick = st.tabs(["All pairs", "Tick / Commission"])
 
     def fmt_signal(signals):
         if not signals:
             return "—"
         return " ".join(label for label, _ in signals)
 
-    display = filtered.copy()
-    display["Signals"] = display["Signals"].apply(fmt_signal)
+    with tab_main:
+        st.caption(f"All pairs ({len(filtered)})")
+        display = filtered.copy()
+        display["Signals"] = display["Signals"].apply(fmt_signal)
+        cols_main = ["Symbol", "Price", "24h %", "1h %", "RSI", "Vol x", "Fund %", "Signals"]
+        styled = (
+            display[cols_main].style
+            .applymap(color_change, subset=["24h %", "1h %"])
+            .applymap(color_rsi, subset=["RSI"])
+            .format({
+                "Price":  lambda v: f"${v:,.4f}" if pd.notna(v) else "—",
+                "24h %":  lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
+                "1h %":   lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
+                "RSI":    lambda v: f"{v:.1f}" if pd.notna(v) else "—",
+                "Vol x":  lambda v: f"{v:.2f}x" if pd.notna(v) else "—",
+                "Fund %": lambda v: f"{v:+.4f}%" if pd.notna(v) else "—",
+            })
+        )
+        st.dataframe(styled, use_container_width=True, hide_index=True)
 
-    styled = (
-        display.style
-        .applymap(color_change, subset=["24h %", "1h %"])
-        .applymap(color_rsi, subset=["RSI"])
-        .format({
-            "Price":   lambda v: f"${v:,.4f}" if pd.notna(v) else "—",
-            "24h %":   lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
-            "1h %":    lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
-            "RSI":     lambda v: f"{v:.1f}" if pd.notna(v) else "—",
-            "Vol x":   lambda v: f"{v:.2f}x" if pd.notna(v) else "—",
-            "Fund %":  lambda v: f"{v:+.4f}%" if pd.notna(v) else "—",
-        })
-    )
-    st.dataframe(styled, use_container_width=True, hide_index=True)
+    with tab_tick:
+        st.caption(
+            f"Tick % = tick_size / price × 100  |  "
+            f"Comm ticks = {COMMISSION_PCT}% / tick%  |  "
+            f"Avg range = средний диапазон свечи за последние 20 баров"
+        )
+        tick_df = df[["Symbol", "Price", "Tick %", "Comm ticks", "Avg range %", "24h %"]].copy()
+        tick_df = tick_df.sort_values("Comm ticks", ascending=True, na_position="last")
+
+        def color_comm(val):
+            if pd.isna(val):
+                return ""
+            if val <= 5:
+                return "color: #00c853; font-weight: bold"
+            if val <= 20:
+                return "color: #ffeb3b"
+            return "color: #ff1744"
+
+        styled_tick = (
+            tick_df.style
+            .applymap(color_comm, subset=["Comm ticks"])
+            .format({
+                "Price":      lambda v: f"${v:,.4f}" if pd.notna(v) else "—",
+                "Tick %":     lambda v: f"{v:.4f}%" if pd.notna(v) else "—",
+                "Comm ticks": lambda v: f"{v:.1f}" if pd.notna(v) else "—",
+                "Avg range %": lambda v: f"{v:.3f}%" if pd.notna(v) else "—",
+                "24h %":      lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
+            })
+        )
+        st.dataframe(styled_tick, use_container_width=True, hide_index=True)
+        st.caption("🟢 Comm ticks ≤ 5 — отличные пары  |  🟡 ≤ 20 — приемлемо  |  🔴 > 20 — комиссия существенна")
 
     st.caption(
-        f"Data from: {BASE / 'data'}  |  "
-        f"Interval: {INTERVAL}  |  "
-        f"Refreshing in {refresh_sec}s"
+        f"Data: {BASE / 'data'}  |  Interval: {INTERVAL}  |  Refresh: {refresh_sec}s"
     )
 
 # Auto-collect logic
