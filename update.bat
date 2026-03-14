@@ -2,17 +2,22 @@
 cd /d "%~dp0"
 echo Updating Binance Screener...
 
-curl -sf -o scripts\screener.py     https://raw.githubusercontent.com/xopromo/binance-collector/main/scripts/screener.py
-curl -sf -o scripts\pair_filters.py https://raw.githubusercontent.com/xopromo/binance-collector/main/scripts/pair_filters.py
-curl -sf -o scripts\collect_data.py https://raw.githubusercontent.com/xopromo/binance-collector/main/scripts/collect_data.py
+set BASE=https://raw.githubusercontent.com/xopromo/binance-collector/main
 
-if errorlevel 1 (
-    echo ERROR: no internet or repo unavailable.
-    pause
-    exit /b 1
-)
+powershell -Command "Invoke-WebRequest -Uri '%BASE%/scripts/screener.py'     -OutFile 'scripts\screener.py'"
+if errorlevel 1 goto fail
+powershell -Command "Invoke-WebRequest -Uri '%BASE%/scripts/pair_filters.py' -OutFile 'scripts\pair_filters.py'"
+if errorlevel 1 goto fail
+powershell -Command "Invoke-WebRequest -Uri '%BASE%/scripts/collect_data.py' -OutFile 'scripts\collect_data.py'"
+if errorlevel 1 goto fail
 
 echo Done! Restarting screener...
 taskkill /f /im streamlit.exe >nul 2>&1
 timeout /t 1 >nul
 start "" run_screener.bat
+exit /b 0
+
+:fail
+echo ERROR: no internet or repo unavailable.
+pause
+exit /b 1
