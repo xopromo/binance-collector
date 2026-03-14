@@ -371,6 +371,7 @@ with st.sidebar:
     st.caption(f"Интервал: {INTERVAL}  |  Пар: {len(active)}/{len(ALL_SYMBOLS)}")
     refresh_sec = st.slider(
         "Авто-обновление (с)", 15, 120, 30, 5,
+        key="refresh_sec",
         help="Как часто страница перезагружает данные из CSV. "
              "Меньше значение — страница обновляется чаще, но выше нагрузка на браузер."
     )
@@ -379,17 +380,20 @@ with st.sidebar:
     st.subheader("Фильтры")
     only_signals = st.checkbox(
         "Только с сигналами",
+        key="only_signals",
         help="Показывать только пары с активными сигналами: "
              "PUMP/DUMP (движение цены), OB/OS (RSI), VOL (всплеск объёма), FUND (фандинг)."
     )
     min_abs_1h = st.slider(
         "Мин |1ч %|", 0.0, 10.0, 0.0, 0.5,
+        key="min_abs_1h",
         help="Минимальное абсолютное изменение цены за последний час. "
              "Например, 1.0 — скрыть пары где цена изменилась менее чем на 1% за час. "
              "Помогает отфильтровать «стоячие» пары."
     )
     rsi_filter = st.select_slider(
         "Диапазон RSI", options=list(range(0, 101, 5)), value=(0, 100),
+        key="rsi_filter",
         help="RSI (Relative Strength Index) — индикатор импульса цены от 0 до 100. "
              "< 30: перепроданность (возможен отскок вверх). "
              "> 70: перекупленность (возможна коррекция вниз). "
@@ -400,6 +404,7 @@ with st.sidebar:
     st.subheader("Пороги сигналов")
     pump_thr = st.number_input(
         "Памп/Дамп %", value=3.0, step=0.5,
+        key="pump_thr",
         help="Порог изменения цены за 1ч для генерации сигнала PUMP/DUMP. "
              "При значении 3.0: сигнал PUMP+ появляется при росте ≥3%, "
              "PUMP — при ≥4.5%, DUMP+ — при падении ≤-3%. "
@@ -407,6 +412,7 @@ with st.sidebar:
     )
     vol_thr = st.number_input(
         "Всплеск объёма x", value=3.0, step=0.5,
+        key="vol_thr",
         help="Минимальный коэффициент всплеска объёма относительно среднего за 20 свечей. "
              "Например, 3.0 = объём в 3 раза выше нормы. "
              "Всплески объёма часто предшествуют резким движениям цены."
@@ -478,276 +484,302 @@ with st.sidebar:
                  "Рекомендуется 5–15 мин для скальпинга, 30–60 мин для свинга."
         )
 
-# ── Load data ─────────────────────────────────────────────────────────────────
 
-with st.spinner("Загрузка данных..."):
-    df = get_screener_data(st.session_state.active_symbols)
 
-if df.empty:
-    st.error("Нет данных. Сначала запустите коллектор.")
-    st.stop()
+@st.fragment(run_every=refresh_sec)
+def live_view():
+    # Read sidebar filter values (widgets store state via key= parameter)
+    only_signals = st.session_state.get("only_signals", False)
+    min_abs_1h   = st.session_state.get("min_abs_1h", 0.0)
+    rsi_filter   = st.session_state.get("rsi_filter", (0, 100))
+    pump_thr     = st.session_state.get("pump_thr", 3.0)
+    vol_thr      = st.session_state.get("vol_thr", 3.0)
 
-# ── Recompute signals with sidebar thresholds ─────────────────────────────────
+    # ── Load data ─────────────────────────────────────────────────────────────────
 
-def recompute_signals(row):
-    sigs, c1h, rsi, vol, fr = [], row["1h %"], row["RSI"], row["Vol x"], row["Fund %"]
-    if pd.notna(c1h):
-        if c1h >= pump_thr * 1.5:    sigs.append(("PUMP",  "pump"))
-        elif c1h >= pump_thr:         sigs.append(("PUMP+", "pump"))
-        elif c1h <= -pump_thr * 1.5:  sigs.append(("DUMP",  "dump"))
-        elif c1h <= -pump_thr:        sigs.append(("DUMP+", "dump"))
-    if pd.notna(rsi):
-        if rsi >= 75:    sigs.append(("OVERBOUGHT", "ob"))
-        elif rsi >= 70:  sigs.append(("OB",         "ob"))
-        elif rsi <= 25:  sigs.append(("OVERSOLD",   "os"))
-        elif rsi <= 30:  sigs.append(("OS",         "os"))
-    if pd.notna(vol) and vol >= vol_thr:
-        sigs.append((f"VOL x{vol:.1f}", "vol"))
-    if pd.notna(fr):
-        if fr >= 0.05:    sigs.append(("FUND+", "fund"))
-        elif fr <= -0.05: sigs.append(("FUND-", "fund"))
-    return sigs
+    with st.spinner("Загрузка данных..."):
+        df = get_screener_data(st.session_state.active_symbols)
 
-df["Signals"] = df.apply(recompute_signals, axis=1)
+    if df.empty:
+        st.error("Нет данных. Сначала запустите коллектор.")
+        st.stop()
 
-# ── Apply screener filters ────────────────────────────────────────────────────
+    # ── Recompute signals with sidebar thresholds ─────────────────────────────────
 
-filtered = df.copy()
-if only_signals:
-    filtered = filtered[filtered["Signals"].apply(len) > 0]
-if min_abs_1h > 0:
-    filtered = filtered[filtered["1h %"].abs() >= min_abs_1h]
-filtered = filtered[
-    filtered["RSI"].isna() |
-    ((filtered["RSI"] >= rsi_filter[0]) & (filtered["RSI"] <= rsi_filter[1]))
-]
+    def recompute_signals(row):
+        sigs, c1h, rsi, vol, fr = [], row["1h %"], row["RSI"], row["Vol x"], row["Fund %"]
+        if pd.notna(c1h):
+            if c1h >= pump_thr * 1.5:    sigs.append(("PUMP",  "pump"))
+            elif c1h >= pump_thr:         sigs.append(("PUMP+", "pump"))
+            elif c1h <= -pump_thr * 1.5:  sigs.append(("DUMP",  "dump"))
+            elif c1h <= -pump_thr:        sigs.append(("DUMP+", "dump"))
+        if pd.notna(rsi):
+            if rsi >= 75:    sigs.append(("OVERBOUGHT", "ob"))
+            elif rsi >= 70:  sigs.append(("OB",         "ob"))
+            elif rsi <= 25:  sigs.append(("OVERSOLD",   "os"))
+            elif rsi <= 30:  sigs.append(("OS",         "os"))
+        if pd.notna(vol) and vol >= vol_thr:
+            sigs.append((f"VOL x{vol:.1f}", "vol"))
+        if pd.notna(fr):
+            if fr >= 0.05:    sigs.append(("FUND+", "fund"))
+            elif fr <= -0.05: sigs.append(("FUND-", "fund"))
+        return sigs
 
-# ── Main layout ───────────────────────────────────────────────────────────────
+    df["Signals"] = df.apply(recompute_signals, axis=1)
 
-col_t, col_r = st.columns([3, 1])
-with col_t:
-    st.title("📈 Binance Screener")
-with col_r:
-    st.metric("Обновлено", pd.Timestamp.utcnow().strftime("%H:%M:%S UTC"))
+    # ── Apply screener filters ────────────────────────────────────────────────────
 
-# ── Alerts ────────────────────────────────────────────────────────────────────
+    filtered = df.copy()
+    if only_signals:
+        filtered = filtered[filtered["Signals"].apply(len) > 0]
+    if min_abs_1h > 0:
+        filtered = filtered[filtered["1h %"].abs() >= min_abs_1h]
+    filtered = filtered[
+        filtered["RSI"].isna() |
+        ((filtered["RSI"] >= rsi_filter[0]) & (filtered["RSI"] <= rsi_filter[1]))
+    ]
 
-alert_rows = filtered[filtered["Signals"].apply(len) > 0]
-if not alert_rows.empty:
-    st.subheader(f"🚨 Сигналы ({len(alert_rows)})")
-    cols = st.columns(min(len(alert_rows), 4))
-    for i, (_, row) in enumerate(alert_rows.iterrows()):
-        with cols[i % 4]:
-            tags_html = " ".join(
-                f'<span class="signal-{css}">{label}</span>'
-                for label, css in row["Signals"]
-            )
-            c1h     = f"{row['1h %']:+.2f}%" if pd.notna(row["1h %"]) else "—"
-            rsi_str = f"RSI {row['RSI']:.0f}" if pd.notna(row["RSI"]) else ""
-            st.markdown(
-                f"**{row['Symbol']}** `${row['Price']:,.4f}`  \n"
-                f"1h: {c1h} | {rsi_str}  \n{tags_html}",
-                unsafe_allow_html=True,
-            )
-else:
-    st.info("Нет сигналов при текущих порогах.")
+    # ── Main layout ───────────────────────────────────────────────────────────────
 
-st.divider()
+    col_t, col_r = st.columns([3, 1])
+    with col_t:
+        st.title("📈 Binance Screener")
+    with col_r:
+        st.metric("Обновлено", pd.Timestamp.utcnow().strftime("%H:%M:%S UTC"))
 
-# ── Tabs ──────────────────────────────────────────────────────────────────────
+    # ── Alerts ────────────────────────────────────────────────────────────────────
 
-tab_screener, tab_selector, tab_tick = st.tabs([
-    f"Скринер ({len(filtered)})",
-    f"Выбор пар ({len(st.session_state.active_symbols)}/{len(ALL_SYMBOLS)})",
-    "Тик / Комиссия",
-])
-
-# ── Tab 1: Screener ───────────────────────────────────────────────────────────
-
-with tab_screener:
-    def fmt_signal(sigs):
-        return " ".join(l for l, _ in sigs) if sigs else "—"
-
-    display = filtered.copy()
-    display["Signals"] = display["Signals"].apply(fmt_signal)
-    cols_main = ["Symbol", "Price", "24h %", "1h %", "RSI", "Vol x", "Fund %", "Signals"]
-    styled = (
-        display[cols_main].style
-        .applymap(color_change, subset=["24h %", "1h %"])
-        .applymap(color_rsi,    subset=["RSI"])
-        .format({
-            "Price":  lambda v: f"${v:,.4f}" if pd.notna(v) else "—",
-            "24h %":  lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
-            "1h %":   lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
-            "RSI":    lambda v: f"{v:.1f}"   if pd.notna(v) else "—",
-            "Vol x":  lambda v: f"{v:.2f}x"  if pd.notna(v) else "—",
-            "Fund %": lambda v: f"{v:+.4f}%" if pd.notna(v) else "—",
-        })
-    )
-    st.dataframe(styled, use_container_width=True, hide_index=True)
-    st.caption(f"Данные: {BASE/'data'}  |  Интервал: {INTERVAL}  |  Обновление: {refresh_sec}с")
-
-# ── Tab 2: Pair Selector ──────────────────────────────────────────────────────
-
-with tab_selector:
-    st.subheader("Выбор пар по критериям")
-    st.caption(
-        "Данные берутся **live с Binance API** — доступны все USDT-пары. "
-        "Avg range % считается только для пар, по которым уже собраны данные локально. "
-        "Настройте фильтры → нажмите **Применить** → коллектор начнёт собирать выбранные пары."
-    )
-
-    # ── Filter controls (from registry) ──────────────────────────────────────
-    filter_settings: dict[str, float] = {}
-
-    with st.expander("Фильтры", expanded=True):
-        for f in FILTERS:
-            lo, hi = f["range"]
-            val = st.slider(
-                f["label"],
-                min_value=float(lo),
-                max_value=float(hi),
-                value=float(f["default"]),
-                step=float(f["step"]),
-                help=f["description"],
-                key=f"fslider_{f['id']}",
-            )
-            filter_settings[f["id"]] = val
-
-    # ── Load all pairs and apply filters ─────────────────────────────────────
-    with st.spinner("Загрузка данных с Binance API..."):
-        all_df = get_all_pairs_data()
-
-    api_failed = all_df.empty
-    if api_failed:
-        st.warning(
-            "⚠️ Нет ответа от Binance API — возможно, ограничен доступ (VPN/прокси/регион). "
-            "Показываются локально собранные данные."
-        )
-        col_retry, _ = st.columns([1, 3])
-        with col_retry:
-            if st.button("🔄 Повторить запрос", help="Очистить кэш и заново запросить данные с Binance API."):
-                fetch_all_binance_usdt_tickers.clear()
-                fetch_all_usdt_tick_sizes.clear()
-                st.rerun()
-        all_df = get_pairs_data_from_local()
-        if all_df.empty:
-            st.error(
-                "Локальных данных тоже нет. "
-                "Сначала запустите коллектор (кнопка «▶ Запустить» в сайдбаре) "
-                "чтобы собрать данные по парам из config.yaml."
-            )
-            st.stop()
+    alert_rows = filtered[filtered["Signals"].apply(len) > 0]
+    if not alert_rows.empty:
+        st.subheader(f"🚨 Сигналы ({len(alert_rows)})")
+        cols = st.columns(min(len(alert_rows), 4))
+        for i, (_, row) in enumerate(alert_rows.iterrows()):
+            with cols[i % 4]:
+                tags_html = " ".join(
+                    f'<span class="signal-{css}">{label}</span>'
+                    for label, css in row["Signals"]
+                )
+                c1h     = f"{row['1h %']:+.2f}%" if pd.notna(row["1h %"]) else "—"
+                rsi_str = f"RSI {row['RSI']:.0f}" if pd.notna(row["RSI"]) else ""
+                tv_url  = f"https://www.tradingview.com/chart/?symbol=BYBIT:{row['_symbol']}.P"
+                st.markdown(
+                    f"**{row['Symbol']}** `${row['Price']:,.4f}` "
+                    f"<a href='{tv_url}' target='_blank' style='font-size:12px;text-decoration:none;'>↗ TV</a>  \n"
+                    f"1h: {c1h} | {rsi_str}  \n{tags_html}",
+                    unsafe_allow_html=True,
+                )
     else:
-        passed = apply_filters(all_df, filter_settings)
-        passed = passed.sort_values("Score", ascending=True, na_position="last")
+        st.info("Нет сигналов при текущих порогах.")
 
-        n_pass = len(passed)
-        n_fail = len(all_df) - n_pass
+    st.divider()
 
-        col_a, col_b, col_c = st.columns(3)
-        col_a.metric("Всего на Binance", len(all_df))
-        col_b.metric("Проходят фильтры", n_pass, delta=f"-{n_fail} отсеяно")
-        col_c.metric("Собирается сейчас", len(st.session_state.active_symbols))
+    # ── Tabs ──────────────────────────────────────────────────────────────────────
 
-        # Show table with pass/fail
-        preview = all_df.copy()
-        preview["✓"] = preview["_symbol"].isin(passed["_symbol"]).map(
-            {True: "✅", False: "❌"}
-        )
-        preview = preview.sort_values("Score", ascending=True, na_position="last")
+    tab_screener, tab_selector, tab_tick = st.tabs([
+        f"Скринер ({len(filtered)})",
+        f"Выбор пар ({len(st.session_state.active_symbols)}/{len(ALL_SYMBOLS)})",
+        "Тик / Комиссия",
+    ])
 
-        def color_pass(val):
-            return "color: #00c853" if val == "✅" else "color: #444"
+    # ── Tab 1: Screener ───────────────────────────────────────────────────────────
 
-        styled_sel = (
-            preview[["✓", "Symbol", "Comm ticks", "Avg range %", "Vol 24h", "Tick %", "Score"]].style
-            .applymap(color_pass,  subset=["✓"])
-            .applymap(color_comm,  subset=["Comm ticks"])
+    with tab_screener:
+        def fmt_signal(sigs):
+            return " ".join(l for l, _ in sigs) if sigs else "—"
+
+        display = filtered.copy()
+        display["Signals"] = display["Signals"].apply(fmt_signal)
+        cols_main = ["Symbol", "Price", "24h %", "1h %", "RSI", "Vol x", "Fund %", "Signals"]
+        styled = (
+            display[cols_main].style
+            .applymap(color_change, subset=["24h %", "1h %"])
+            .applymap(color_rsi,    subset=["RSI"])
             .format({
-                "Comm ticks":  lambda v: f"{v:.1f}"        if pd.notna(v) else "—",
-                "Avg range %": lambda v: f"{v:.3f}%"       if pd.notna(v) else "—",
-                "Vol 24h":     lambda v: f"${v:,.0f}"      if pd.notna(v) else "—",
-                "Tick %":      lambda v: f"{v:.4f}%"       if pd.notna(v) else "—",
-                "Score":       lambda v: f"{v:.1f}"        if pd.notna(v) else "—",
+                "Price":  lambda v: f"${v:,.4f}" if pd.notna(v) else "—",
+                "24h %":  lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
+                "1h %":   lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
+                "RSI":    lambda v: f"{v:.1f}"   if pd.notna(v) else "—",
+                "Vol x":  lambda v: f"{v:.2f}x"  if pd.notna(v) else "—",
+                "Fund %": lambda v: f"{v:+.4f}%" if pd.notna(v) else "—",
             })
         )
-        st.dataframe(styled_sel, use_container_width=True, hide_index=True)
+        st.dataframe(styled, use_container_width=True, hide_index=True)
+        st.caption(f"Данные: {BASE/'data'}  |  Интервал: {INTERVAL}  |  Обновление: {refresh_sec}с")
 
-        # ── Apply / Reset buttons ─────────────────────────────────────────────
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button(
-                f"✅ Применить — собирать {n_pass} пар",
-                type="primary",
-                use_container_width=True,
-                disabled=n_pass == 0,
-            ):
-                selected = passed["_symbol"].tolist()
-                st.session_state.active_symbols = selected
-                save_selected_pairs(selected)
-                st.success(f"Применено: {n_pass} пар сохранены. Коллектор подберёт их при следующем запуске.")
-                st.rerun()
-        with col2:
-            if st.button(
-                f"↺ Сбросить — все {len(ALL_SYMBOLS)} пар",
-                use_container_width=True,
-            ):
-                st.session_state.active_symbols = ALL_SYMBOLS
-                save_selected_pairs(ALL_SYMBOLS)
-                st.rerun()
+    # ── Tab 2: Pair Selector ──────────────────────────────────────────────────────
 
+    with tab_selector:
+        st.subheader("Выбор пар по критериям")
         st.caption(
-            "Score = Comm ticks × 2 − Avg range % × 10  |  Меньше Score — лучше пара для торговли"
+            "Данные берутся **live с Binance API** — доступны все USDT-пары. "
+            "Avg range % считается только для пар, по которым уже собраны данные локально. "
+            "Настройте фильтры → нажмите **Применить** → коллектор начнёт собирать выбранные пары."
         )
 
-# ── Tab 3: Tick / Commission ──────────────────────────────────────────────────
+        # ── Filter controls (from registry) ──────────────────────────────────────
+        filter_settings: dict[str, float] = {}
 
-with tab_tick:
-    st.caption(
-        f"Tick % = tick_size / price × 100  |  "
-        f"Comm ticks = {COMMISSION_PCT}% / tick%  |  "
-        f"Avg range = средний диапазон свечи (20 баров)"
-    )
-    tick_df = df[["Symbol", "Price", "Tick %", "Comm ticks", "Avg range %", "24h %"]].copy()
-    tick_df = tick_df.sort_values("Comm ticks", ascending=True, na_position="last")
-
-    styled_tick = (
-        tick_df.style
-        .applymap(color_comm, subset=["Comm ticks"])
-        .format({
-            "Price":       lambda v: f"${v:,.4f}" if pd.notna(v) else "—",
-            "Tick %":      lambda v: f"{v:.4f}%"  if pd.notna(v) else "—",
-            "Comm ticks":  lambda v: f"{v:.1f}"   if pd.notna(v) else "—",
-            "Avg range %": lambda v: f"{v:.3f}%"  if pd.notna(v) else "—",
-            "24h %":       lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
-        })
-    )
-    st.dataframe(styled_tick, use_container_width=True, hide_index=True)
-    st.caption("🟢 Comm ticks ≤ 5 — отлично  |  🟡 ≤ 20 — приемлемо  |  🔴 > 20 — комиссия существенна")
-
-# ── Auto-collect ──────────────────────────────────────────────────────────────
-
-if st.session_state.col_auto:
-    proc       = st.session_state.col_proc
-    is_running = proc is not None and proc.poll() is None
-    if not is_running:
-        last         = st.session_state.col_last
-        interval_sec = st.session_state.col_auto_min * 60
-        needs_run    = last is None or (
-            pd.Timestamp.utcnow()
-            - pd.Timestamp(last.replace(" UTC", ""), tz="UTC")
-        ).total_seconds() >= interval_sec
-        if needs_run:
-            log_dir = BASE / "logs"
-            log_dir.mkdir(exist_ok=True)
-            with open(log_dir / "collect.log", "a") as log:
-                p = subprocess.Popen(
-                    [sys.executable, str(BASE / "scripts" / "collect_data.py")],
-                    stdout=log, stderr=log, cwd=str(BASE),
+        with st.expander("Фильтры", expanded=True):
+            for f in FILTERS:
+                lo, hi = f["range"]
+                val = st.slider(
+                    f["label"],
+                    min_value=float(lo),
+                    max_value=float(hi),
+                    value=float(f["default"]),
+                    step=float(f["step"]),
+                    help=f["description"],
+                    key=f"fslider_{f['id']}",
                 )
-            st.session_state.col_proc = p
-            st.session_state.col_last = pd.Timestamp.utcnow().strftime("%H:%M:%S UTC")
+                filter_settings[f["id"]] = val
 
-time.sleep(refresh_sec)
-st.rerun()
+        # ── Load all pairs and apply filters ─────────────────────────────────────
+        with st.spinner("Загрузка данных с Binance API..."):
+            all_df = get_all_pairs_data()
+
+        api_failed = all_df.empty
+        if api_failed:
+            st.warning(
+                "⚠️ Нет ответа от Binance API — возможно, ограничен доступ (VPN/прокси/регион). "
+                "Показываются локально собранные данные."
+            )
+            col_retry, _ = st.columns([1, 3])
+            with col_retry:
+                if st.button("🔄 Повторить запрос", help="Очистить кэш и заново запросить данные с Binance API."):
+                    fetch_all_binance_usdt_tickers.clear()
+                    fetch_all_usdt_tick_sizes.clear()
+                    st.rerun()
+            all_df = get_pairs_data_from_local()
+            if all_df.empty:
+                st.error(
+                    "Локальных данных тоже нет. "
+                    "Сначала запустите коллектор (кнопка «▶ Запустить» в сайдбаре) "
+                    "чтобы собрать данные по парам из config.yaml."
+                )
+                st.stop()
+        else:
+            passed = apply_filters(all_df, filter_settings)
+            passed = passed.sort_values("Score", ascending=True, na_position="last")
+
+            n_pass = len(passed)
+            n_fail = len(all_df) - n_pass
+
+            col_a, col_b, col_c = st.columns(3)
+            col_a.metric("Всего на Binance", len(all_df))
+            col_b.metric("Проходят фильтры", n_pass, delta=f"-{n_fail} отсеяно")
+            col_c.metric("Собирается сейчас", len(st.session_state.active_symbols))
+
+            # Show table with pass/fail
+            preview = all_df.copy()
+            preview["✓"] = preview["_symbol"].isin(passed["_symbol"]).map(
+                {True: "✅", False: "❌"}
+            )
+            preview = preview.sort_values("Score", ascending=True, na_position="last")
+
+            def color_pass(val):
+                return "color: #00c853" if val == "✅" else "color: #444"
+
+            styled_sel = (
+                preview[["✓", "Symbol", "Comm ticks", "Avg range %", "Vol 24h", "Tick %", "Score"]].style
+                .applymap(color_pass,  subset=["✓"])
+                .applymap(color_comm,  subset=["Comm ticks"])
+                .format({
+                    "Comm ticks":  lambda v: f"{v:.1f}"        if pd.notna(v) else "—",
+                    "Avg range %": lambda v: f"{v:.3f}%"       if pd.notna(v) else "—",
+                    "Vol 24h":     lambda v: f"${v:,.0f}"      if pd.notna(v) else "—",
+                    "Tick %":      lambda v: f"{v:.4f}%"       if pd.notna(v) else "—",
+                    "Score":       lambda v: f"{v:.1f}"        if pd.notna(v) else "—",
+                })
+            )
+            col_tbl, col_score_help = st.columns([11, 1])
+            with col_score_help:
+                with st.popover("ℹ️"):
+                    st.markdown(
+                        "**Score = Comm ticks × 2 − Avg range % × 10**\n\n"
+                        "Чем **меньше** Score — тем лучше пара для скальпинга.\n\n"
+                        "- **Comm ticks** — сколько тиков нужно пройти, чтобы отбить комиссию. "
+                        "Меньше = дешевле торговать.\n"
+                        "- **Avg range %** — средний диапазон свечи за 20 баров. "
+                        "Больше = пара активнее двигается.\n\n"
+                        "Весовые коэффициенты: Comm ticks ×2 важнее, Avg range ×10 бонус за волатильность."
+                    )
+            with col_tbl:
+                st.dataframe(styled_sel, use_container_width=True, hide_index=True)
+
+            # ── Apply / Reset buttons ─────────────────────────────────────────────
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button(
+                    f"✅ Применить — собирать {n_pass} пар",
+                    type="primary",
+                    use_container_width=True,
+                    disabled=n_pass == 0,
+                ):
+                    selected = passed["_symbol"].tolist()
+                    st.session_state.active_symbols = selected
+                    save_selected_pairs(selected)
+                    st.success(f"Применено: {n_pass} пар сохранены. Коллектор подберёт их при следующем запуске.")
+                    st.rerun()
+            with col2:
+                if st.button(
+                    f"↺ Сбросить — все {len(ALL_SYMBOLS)} пар",
+                    use_container_width=True,
+                ):
+                    st.session_state.active_symbols = ALL_SYMBOLS
+                    save_selected_pairs(ALL_SYMBOLS)
+                    st.rerun()
+
+            st.caption(
+                "Score = Comm ticks × 2 − Avg range % × 10  |  Меньше Score — лучше пара для торговли"
+            )
+
+    # ── Tab 3: Tick / Commission ──────────────────────────────────────────────────
+
+    with tab_tick:
+        st.caption(
+            f"Tick % = tick_size / price × 100  |  "
+            f"Comm ticks = {COMMISSION_PCT}% / tick%  |  "
+            f"Avg range = средний диапазон свечи (20 баров)"
+        )
+        tick_df = df[["Symbol", "Price", "Tick %", "Comm ticks", "Avg range %", "24h %"]].copy()
+        tick_df = tick_df.sort_values("Comm ticks", ascending=True, na_position="last")
+
+        styled_tick = (
+            tick_df.style
+            .applymap(color_comm, subset=["Comm ticks"])
+            .format({
+                "Price":       lambda v: f"${v:,.4f}" if pd.notna(v) else "—",
+                "Tick %":      lambda v: f"{v:.4f}%"  if pd.notna(v) else "—",
+                "Comm ticks":  lambda v: f"{v:.1f}"   if pd.notna(v) else "—",
+                "Avg range %": lambda v: f"{v:.3f}%"  if pd.notna(v) else "—",
+                "24h %":       lambda v: f"{v:+.2f}%" if pd.notna(v) else "—",
+            })
+        )
+        st.dataframe(styled_tick, use_container_width=True, hide_index=True)
+        st.caption("🟢 Comm ticks ≤ 5 — отлично  |  🟡 ≤ 20 — приемлемо  |  🔴 > 20 — комиссия существенна")
+
+    # ── Auto-collect ──────────────────────────────────────────────────────────────
+
+    if st.session_state.col_auto:
+        proc       = st.session_state.col_proc
+        is_running = proc is not None and proc.poll() is None
+        if not is_running:
+            last         = st.session_state.col_last
+            interval_sec = st.session_state.col_auto_min * 60
+            needs_run    = last is None or (
+                pd.Timestamp.utcnow()
+                - pd.Timestamp(last.replace(" UTC", ""), tz="UTC")
+            ).total_seconds() >= interval_sec
+            if needs_run:
+                log_dir = BASE / "logs"
+                log_dir.mkdir(exist_ok=True)
+                with open(log_dir / "collect.log", "a") as log:
+                    p = subprocess.Popen(
+                        [sys.executable, str(BASE / "scripts" / "collect_data.py")],
+                        stdout=log, stderr=log, cwd=str(BASE),
+                    )
+                st.session_state.col_proc = p
+                st.session_state.col_last = pd.Timestamp.utcnow().strftime("%H:%M:%S UTC")
+
+
+live_view()
