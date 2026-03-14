@@ -158,9 +158,11 @@ def get_pairs_data_from_local() -> pd.DataFrame:
         price = float(last.get("price", 0))
         vol   = float(last.get("volume_usdt_24h", 0))
         chg   = float(last.get("change_pct_24h", 0))
-        tick_size  = tick_sizes.get(symbol)
-        tick_pct   = round(tick_size / price * 100, 6) if tick_size and price > 0 else None
-        comm_ticks = round(COMMISSION_PCT / tick_pct, 1) if tick_pct else None
+        tick_size = tick_sizes.get(symbol)
+        if not tick_size or price <= 0:
+            continue  # пара делистингована или нет данных о тиках
+        tick_pct   = round(tick_size / price * 100, 6)
+        comm_ticks = round(COMMISSION_PCT / tick_pct, 1)
         avg_range_pct = None
         if ohlcv is not None and len(ohlcv) >= 10 and {"high", "low", "close"}.issubset(ohlcv.columns):
             h = ohlcv["high"].astype(float).iloc[-20:]
@@ -199,9 +201,11 @@ def get_all_pairs_data() -> pd.DataFrame:
         symbol = t["_symbol"]
         price  = t["Price"]
 
-        tick_size  = tick_sizes.get(symbol)
-        tick_pct   = round(tick_size / price * 100, 6) if tick_size and price > 0 else None
-        comm_ticks = round(COMMISSION_PCT / tick_pct, 1) if tick_pct else None
+        tick_size = tick_sizes.get(symbol)
+        if not tick_size:
+            continue  # пара не TRADING (делистинг/BREAK/HALT) — пропускаем
+        tick_pct   = round(tick_size / price * 100, 6)
+        comm_ticks = round(COMMISSION_PCT / tick_pct, 1)
 
         avg_range_pct = None
         ohlcv = load_csv(BASE / "data" / "ohlcv" / INTERVAL / f"{symbol}.csv")
