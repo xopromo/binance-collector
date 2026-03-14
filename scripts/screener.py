@@ -648,36 +648,17 @@ def live_view():
     # ── Tab 2: Pair Selector ──────────────────────────────────────────────────────
 
     with tab_selector:
-        st.subheader("Выбор пар по критериям")
+        st.subheader("Выбор пар")
         st.caption(
-            "Данные берутся **live с Binance API** — доступны все USDT-пары. "
-            "Avg range % считается только для пар, по которым уже собраны данные локально. "
-            "Настройте фильтры → нажмите **Применить** → коллектор начнёт собирать выбранные пары."
+            "Фильтруйте строки → сортируйте по столбцу (клик на заголовок) → "
+            "ставьте/снимайте галочки → нажмите **Применить**."
         )
 
-        # ── Filter controls (from registry) ──────────────────────────────────────
-        filter_settings: dict[str, float] = {}
-
-        with st.expander("Фильтры", expanded=True):
-            for f in FILTERS:
-                lo, hi = f["range"]
-                val = st.slider(
-                    f["label"],
-                    min_value=float(lo),
-                    max_value=float(hi),
-                    value=float(f["default"]),
-                    step=float(f["step"]),
-                    help=f["description"],
-                    key=f"fslider_{f['id']}",
-                )
-                filter_settings[f["id"]] = val
-
-        # ── Load all pairs and apply filters ─────────────────────────────────────
+        # ── Load data ─────────────────────────────────────────────────────────────
         with st.spinner("Загрузка данных с Binance API..."):
             all_df = get_all_pairs_data()
 
-        api_failed = all_df.empty
-        if api_failed:
+        if all_df.empty:
             st.warning(
                 "⚠️ Нет ответа от Binance API — возможно, ограничен доступ (VPN/прокси/регион). "
                 "Показываются локально собранные данные."
@@ -696,81 +677,113 @@ def live_view():
                     "чтобы собрать данные по парам из config.yaml."
                 )
                 st.stop()
-        else:
-            passed = apply_filters(all_df, filter_settings)
-            passed = passed.sort_values("Score", ascending=True, na_position="last")
 
-            n_pass = len(passed)
-            n_fail = len(all_df) - n_pass
-
-            col_a, col_b, col_c = st.columns(3)
-            col_a.metric("Всего на Binance", len(all_df))
-            col_b.metric("Проходят фильтры", n_pass, delta=f"-{n_fail} отсеяно")
-            col_c.metric("Собирается сейчас", len(st.session_state.active_symbols))
-
-            # Show table with pass/fail
-            preview = all_df.copy()
-            preview["✓"] = preview["_symbol"].isin(passed["_symbol"]).map(
-                {True: "✅", False: "❌"}
+        # ── Column filter inputs ──────────────────────────────────────────────────
+        fc1, fc2, fc3, fc4, fc5 = st.columns([2, 1, 1, 1, 1.5])
+        with fc1:
+            sym_search = st.text_input(
+                "Symbol", "", placeholder="🔍 Symbol...",
+                label_visibility="collapsed", key="sel_sym",
             )
-            preview = preview.sort_values("Score", ascending=True, na_position="last")
-
-            def color_pass(val):
-                return "color: #00c853" if val == "✅" else "color: #444"
-
-            styled_sel = (
-                preview[["✓", "Symbol", "Comm ticks", "Avg range %", "Vol 24h", "Tick %", "Score"]].style
-                .applymap(color_pass,  subset=["✓"])
-                .applymap(color_comm,  subset=["Comm ticks"])
-                .format({
-                    "Comm ticks":  lambda v: f"{v:.1f}"        if pd.notna(v) else "—",
-                    "Avg range %": lambda v: f"{v:.3f}%"       if pd.notna(v) else "—",
-                    "Vol 24h":     lambda v: f"${v:,.0f}"      if pd.notna(v) else "—",
-                    "Tick %":      lambda v: f"{v:.4f}%"       if pd.notna(v) else "—",
-                    "Score":       lambda v: f"{v:.1f}"        if pd.notna(v) else "—",
-                })
+        with fc2:
+            max_score = st.number_input(
+                "Score ≤", value=None, placeholder="Score ≤",
+                label_visibility="collapsed", key="sel_score", step=0.1, format="%.1f",
             )
-            col_tbl, col_score_help = st.columns([11, 1])
-            with col_score_help:
-                with st.popover("ℹ️"):
-                    st.markdown(
-                        "**Score = Comm ticks × 2 − Avg range % × 10**\n\n"
-                        "Чем **меньше** Score — тем лучше пара для скальпинга.\n\n"
-                        "- **Comm ticks** — сколько тиков нужно пройти, чтобы отбить комиссию. "
-                        "Меньше = дешевле торговать.\n"
-                        "- **Avg range %** — средний диапазон свечи за 20 баров. "
-                        "Больше = пара активнее двигается.\n\n"
-                        "Весовые коэффициенты: Comm ticks ×2 важнее, Avg range ×10 бонус за волатильность."
-                    )
-            with col_tbl:
-                st.dataframe(styled_sel, use_container_width=True, hide_index=True)
-
-            # ── Apply / Reset buttons ─────────────────────────────────────────────
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button(
-                    f"✅ Применить — собирать {n_pass} пар",
-                    type="primary",
-                    use_container_width=True,
-                    disabled=n_pass == 0,
-                ):
-                    selected = passed["_symbol"].tolist()
-                    st.session_state.active_symbols = selected
-                    save_selected_pairs(selected)
-                    st.success(f"Применено: {n_pass} пар сохранены. Коллектор подберёт их при следующем запуске.")
-                    st.rerun()
-            with col2:
-                if st.button(
-                    f"↺ Сбросить — все {len(ALL_SYMBOLS)} пар",
-                    use_container_width=True,
-                ):
-                    st.session_state.active_symbols = ALL_SYMBOLS
-                    save_selected_pairs(ALL_SYMBOLS)
-                    st.rerun()
-
-            st.caption(
-                "Score = Comm ticks × 2 − Avg range % × 10  |  Меньше Score — лучше пара для торговли"
+        with fc3:
+            max_comm = st.number_input(
+                "Comm ≤", value=None, placeholder="Comm ticks ≤",
+                label_visibility="collapsed", key="sel_comm", step=0.1, format="%.1f",
             )
+        with fc4:
+            min_range = st.number_input(
+                "Range ≥", value=None, placeholder="Avg range % ≥",
+                label_visibility="collapsed", key="sel_range", step=0.001, format="%.3f",
+            )
+        with fc5:
+            min_vol_m = st.number_input(
+                "Vol ≥ $M", value=None, placeholder="Vol 24h ≥ $M",
+                label_visibility="collapsed", key="sel_vol", step=1.0, format="%.0f",
+            )
+
+        # ── Apply filters ─────────────────────────────────────────────────────────
+        view = all_df.copy()
+        if sym_search:
+            view = view[view["Symbol"].str.upper().str.contains(sym_search.upper(), na=False)]
+        if max_score is not None:
+            view = view[view["Score"].fillna(999) <= max_score]
+        if max_comm is not None:
+            view = view[view["Comm ticks"].fillna(999) <= max_comm]
+        if min_range is not None:
+            view = view[view["Avg range %"].fillna(0) >= min_range]
+        if min_vol_m is not None:
+            view = view[view["Vol 24h"].fillna(0) >= min_vol_m * 1_000_000]
+
+        view = view.sort_values("Score", ascending=True, na_position="last").reset_index(drop=True)
+        view["✓"] = view["_symbol"].isin(st.session_state.active_symbols)
+
+        n_shown   = len(view)
+        n_checked = int(view["✓"].sum())
+        st.caption(
+            f"Показано: **{n_shown}** из {len(all_df)} пар  |  "
+            f"Отмечено: **{n_checked}**  |  "
+            f"Собирается сейчас: **{len(st.session_state.active_symbols)}**"
+        )
+
+        # ── Interactive table with checkboxes ─────────────────────────────────────
+        edited = st.data_editor(
+            view[["✓", "Symbol", "Comm ticks", "Avg range %", "Vol 24h", "Tick %", "Score"]],
+            use_container_width=True,
+            hide_index=True,
+            height=520,
+            column_config={
+                "✓":           st.column_config.CheckboxColumn("✓",          width="small"),
+                "Symbol":      st.column_config.TextColumn("Symbol",          width="small"),
+                "Comm ticks":  st.column_config.NumberColumn("Comm ticks",    format="%.1f",   width="small"),
+                "Avg range %": st.column_config.NumberColumn("Avg range %",   format="%.3f%%", width="small"),
+                "Vol 24h":     st.column_config.NumberColumn("Vol 24h",       format="$%d",    width="medium"),
+                "Tick %":      st.column_config.NumberColumn("Tick %",        format="%.4f%%", width="small"),
+                "Score":       st.column_config.NumberColumn("Score",         format="%.1f",   width="small"),
+            },
+            disabled=["Symbol", "Comm ticks", "Avg range %", "Vol 24h", "Tick %", "Score"],
+            key="sel_editor",
+        )
+
+        n_checked_after = int(edited["✓"].sum())
+
+        # ── Apply / Reset buttons ─────────────────────────────────────────────────
+        col1, col2, col_help = st.columns([3, 2, 1])
+        with col1:
+            if st.button(
+                f"✅ Применить — собирать {n_checked_after} пар",
+                type="primary",
+                use_container_width=True,
+                disabled=n_checked_after == 0,
+            ):
+                selected = view.loc[edited["✓"], "_symbol"].tolist()
+                st.session_state.active_symbols = selected
+                save_selected_pairs(selected)
+                st.success(f"Применено: {n_checked_after} пар сохранены. Коллектор подберёт их при следующем запуске.")
+                st.rerun()
+        with col2:
+            if st.button(
+                f"↺ Сбросить — все {len(ALL_SYMBOLS)} пар",
+                use_container_width=True,
+            ):
+                st.session_state.active_symbols = ALL_SYMBOLS
+                save_selected_pairs(ALL_SYMBOLS)
+                st.rerun()
+        with col_help:
+            with st.popover("ℹ️"):
+                st.markdown(
+                    "**Score = Comm ticks × 2 − Avg range % × 10**\n\n"
+                    "Чем **меньше** Score — тем лучше пара для скальпинга.\n\n"
+                    "- **Comm ticks** — сколько тиков нужно пройти, чтобы отбить комиссию. "
+                    "Меньше = дешевле торговать.\n"
+                    "- **Avg range %** — средний диапазон свечи за 20 баров. "
+                    "Больше = пара активнее двигается."
+                )
+        st.caption("Score = Comm ticks × 2 − Avg range % × 10  |  Меньше Score — лучше пара для торговли")
 
     # ── Tab 3: Tick / Commission ──────────────────────────────────────────────────
 
