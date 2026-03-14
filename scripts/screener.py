@@ -312,6 +312,17 @@ with st.sidebar:
             st.session_state.col_last = pd.Timestamp.utcnow().strftime("%H:%M:%S UTC")
             st.rerun()
 
+    st.divider()
+    st.subheader("Update")
+    if st.button("⬇ Update scripts", use_container_width=True):
+        bat = BASE / "update.bat"
+        try:
+            subprocess.Popen(["cmd", "/c", str(bat)], cwd=str(BASE))
+            st.success("Update started — screener will restart automatically.")
+        except Exception as e:
+            st.error(f"Failed: {e}")
+    st.divider()
+
     st.session_state.col_auto = st.checkbox("Auto-collect", value=st.session_state.col_auto)
     if st.session_state.col_auto:
         st.session_state.col_auto_min = st.slider(
