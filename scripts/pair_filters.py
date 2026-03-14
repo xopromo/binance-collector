@@ -86,7 +86,8 @@ def apply_filters(df: pd.DataFrame, settings: dict[str, float]) -> pd.DataFrame:
         threshold = settings[fid]
         series = pd.to_numeric(df[col], errors="coerce")
         if f["mode"] == "max":
-            mask &= series.isna() | (series <= threshold)
+            # Pairs without tick data (None) are excluded — we can't verify they pass
+            mask &= series.notna() & (series <= threshold)
         elif f["mode"] == "min":
             # skip pairs where value is NaN when threshold == default (0 / min)
             if threshold <= f["range"][0]:
@@ -98,11 +99,11 @@ def apply_filters(df: pd.DataFrame, settings: dict[str, float]) -> pd.DataFrame:
 def score_pair(row: pd.Series) -> float:
     """
     Composite score: lower is better.
-    Used for default sorting in Pair Selector.
+    Returns NaN when Comm ticks is unknown (sorts to bottom).
     """
-    score = 0.0
-    if pd.notna(row.get("Comm ticks")):
-        score += float(row["Comm ticks"]) * 2      # weight: most important
+    if pd.isna(row.get("Comm ticks")):
+        return float("nan")
+    score = float(row["Comm ticks"]) * 2           # weight: most important
     if pd.notna(row.get("Avg range %")) and row["Avg range %"] > 0:
         score -= float(row["Avg range %"]) * 10    # higher range → lower score (better)
     return round(score, 2)
