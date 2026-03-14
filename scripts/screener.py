@@ -2,6 +2,7 @@ import json
 import sys
 import subprocess
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import numpy as np
@@ -145,6 +146,36 @@ def fetch_all_usdt_tick_sizes() -> dict:
         return {}
 
 
+@st.cache_data(ttl=300)
+def fetch_avg_ranges_api(symbols: tuple, interval: str) -> dict:
+    """Batch-запрос свечей с Binance API для расчёта Avg range % (fallback когда нет локального CSV)."""
+    def _fetch_one(sym):
+        try:
+            r = requests.get(
+                "https://api.binance.com/api/v3/klines",
+                params={"symbol": sym, "interval": interval, "limit": 25},
+                timeout=10,
+            )
+            if r.status_code != 200:
+                return sym, None
+            data = r.json()
+            if len(data) < 10:
+                return sym, None
+            ranges = [
+                (float(k[2]) - float(k[3])) / float(k[4]) * 100
+                for k in data if float(k[4]) > 0
+            ]
+            return sym, round(sum(ranges) / len(ranges), 3) if ranges else None
+        except Exception:
+            return sym, None
+
+    result = {}
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        for sym, val in executor.map(_fetch_one, symbols):
+            result[sym] = val
+    return result
+
+
 def get_pairs_data_from_local() -> pd.DataFrame:
     """Fallback: строит данные по парам из локальных CSV когда Binance API недоступен."""
     tick_sizes = fetch_tick_sizes(tuple(ALL_SYMBOLS))
@@ -189,13 +220,19 @@ def get_all_pairs_data() -> pd.DataFrame:
     """Загружает данные для ВСЕХ USDT-пар Binance — используется в Выборе пар.
 
     Базовые метрики (цена, объём, тик) — из live API.
-    Avg range % — из локальных CSV (только для уже собранных пар).
+    Avg range % — из локальных CSV, для отсутствующих — запрос к Binance API.
     """
     tickers_df = fetch_all_binance_usdt_tickers()
     if tickers_df.empty:
         return pd.DataFrame()
 
     tick_sizes = fetch_all_usdt_tick_sizes()
+
+    # Определяем, для каких пар нет локального CSV → нужен API-запрос
+    all_syms     = [t["_symbol"] for _, t in tickers_df.iterrows() if tick_sizes.get(t["_symbol"])]
+    missing_syms = tuple(s for s in all_syms if not (BASE / "data" / "ohlcv" / INTERVAL / f"{s}.csv").exists())
+    api_ranges   = fetch_avg_ranges_api(missing_syms, INTERVAL) if missing_syms else {}
+
     rows = []
     for _, t in tickers_df.iterrows():
         symbol = t["_symbol"]
@@ -214,6 +251,8 @@ def get_all_pairs_data() -> pd.DataFrame:
             l = ohlcv["low"].astype(float).iloc[-20:]
             c = ohlcv["close"].astype(float).iloc[-20:]
             avg_range_pct = round(float(((h - l) / c * 100).mean()), 3)
+        elif symbol in api_ranges:
+            avg_range_pct = api_ranges[symbol]
 
         rows.append({
             "Symbol":      t["Symbol"],
