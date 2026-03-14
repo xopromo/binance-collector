@@ -145,6 +145,44 @@ def fetch_all_usdt_tick_sizes() -> dict:
         return {}
 
 
+def get_pairs_data_from_local() -> pd.DataFrame:
+    """Fallback: строит данные по парам из локальных CSV когда Binance API недоступен."""
+    tick_sizes = fetch_tick_sizes(tuple(ALL_SYMBOLS))
+    rows = []
+    for symbol in ALL_SYMBOLS:
+        ticker = load_csv(BASE / "data" / "tickers" / f"{symbol}.csv")
+        ohlcv  = load_csv(BASE / "data" / "ohlcv" / INTERVAL / f"{symbol}.csv")
+        if ticker is None or ticker.empty:
+            continue
+        last  = ticker.iloc[-1]
+        price = float(last.get("price", 0))
+        vol   = float(last.get("volume_usdt_24h", 0))
+        chg   = float(last.get("change_pct_24h", 0))
+        tick_size  = tick_sizes.get(symbol)
+        tick_pct   = round(tick_size / price * 100, 6) if tick_size and price > 0 else None
+        comm_ticks = round(COMMISSION_PCT / tick_pct, 1) if tick_pct else None
+        avg_range_pct = None
+        if ohlcv is not None and len(ohlcv) >= 10 and {"high", "low", "close"}.issubset(ohlcv.columns):
+            h = ohlcv["high"].astype(float).iloc[-20:]
+            l = ohlcv["low"].astype(float).iloc[-20:]
+            c = ohlcv["close"].astype(float).iloc[-20:]
+            avg_range_pct = round(float(((h - l) / c * 100).mean()), 3)
+        rows.append({
+            "Symbol":      symbol.replace("USDT", ""),
+            "_symbol":     symbol,
+            "Price":       price,
+            "24h %":       chg,
+            "Vol 24h":     vol,
+            "Tick %":      tick_pct,
+            "Comm ticks":  comm_ticks,
+            "Avg range %": avg_range_pct,
+        })
+    df = pd.DataFrame(rows)
+    if not df.empty:
+        df["Score"] = df.apply(score_pair, axis=1)
+    return df
+
+
 def get_all_pairs_data() -> pd.DataFrame:
     """Загружает данные для ВСЕХ USDT-пар Binance — используется в Выборе пар.
 
@@ -327,18 +365,48 @@ with st.sidebar:
     st.title("📈 Screener")
     active = st.session_state.active_symbols
     st.caption(f"Интервал: {INTERVAL}  |  Пар: {len(active)}/{len(ALL_SYMBOLS)}")
-    refresh_sec = st.slider("Авто-обновление (с)", 15, 120, 30, 5)
+    refresh_sec = st.slider(
+        "Авто-обновление (с)", 15, 120, 30, 5,
+        help="Как часто страница перезагружает данные из CSV. "
+             "Меньше значение — страница обновляется чаще, но выше нагрузка на браузер."
+    )
     st.divider()
 
     st.subheader("Фильтры")
-    only_signals = st.checkbox("Только с сигналами")
-    min_abs_1h   = st.slider("Мин |1ч %|", 0.0, 10.0, 0.0, 0.5)
-    rsi_filter   = st.select_slider("Диапазон RSI", options=list(range(0, 101, 5)), value=(0, 100))
+    only_signals = st.checkbox(
+        "Только с сигналами",
+        help="Показывать только пары с активными сигналами: "
+             "PUMP/DUMP (движение цены), OB/OS (RSI), VOL (всплеск объёма), FUND (фандинг)."
+    )
+    min_abs_1h = st.slider(
+        "Мин |1ч %|", 0.0, 10.0, 0.0, 0.5,
+        help="Минимальное абсолютное изменение цены за последний час. "
+             "Например, 1.0 — скрыть пары где цена изменилась менее чем на 1% за час. "
+             "Помогает отфильтровать «стоячие» пары."
+    )
+    rsi_filter = st.select_slider(
+        "Диапазон RSI", options=list(range(0, 101, 5)), value=(0, 100),
+        help="RSI (Relative Strength Index) — индикатор импульса цены от 0 до 100. "
+             "< 30: перепроданность (возможен отскок вверх). "
+             "> 70: перекупленность (возможна коррекция вниз). "
+             "Установите диапазон, чтобы видеть только нужные зоны."
+    )
     st.divider()
 
     st.subheader("Пороги сигналов")
-    pump_thr = st.number_input("Памп/Дамп %",      value=3.0, step=0.5)
-    vol_thr  = st.number_input("Всплеск объёма x", value=3.0, step=0.5)
+    pump_thr = st.number_input(
+        "Памп/Дамп %", value=3.0, step=0.5,
+        help="Порог изменения цены за 1ч для генерации сигнала PUMP/DUMP. "
+             "При значении 3.0: сигнал PUMP+ появляется при росте ≥3%, "
+             "PUMP — при ≥4.5%, DUMP+ — при падении ≤-3%. "
+             "Уменьшите для более чувствительных сигналов."
+    )
+    vol_thr = st.number_input(
+        "Всплеск объёма x", value=3.0, step=0.5,
+        help="Минимальный коэффициент всплеска объёма относительно среднего за 20 свечей. "
+             "Например, 3.0 = объём в 3 раза выше нормы. "
+             "Всплески объёма часто предшествуют резким движениям цены."
+    )
     st.divider()
 
     # ── Collector controls ────────────────────────────────────────────────────
@@ -349,7 +417,8 @@ with st.sidebar:
 
     if is_running:
         st.success("● Сбор данных...")
-        if st.button("■ Стоп", use_container_width=True):
+        if st.button("■ Стоп", use_container_width=True,
+                     help="Остановить текущий процесс сбора данных."):
             proc.terminate()
             st.session_state.col_proc = None
             st.rerun()
@@ -358,7 +427,13 @@ with st.sidebar:
             st.session_state.col_proc = None
         if st.session_state.col_last:
             st.caption(f"Последний запуск: {st.session_state.col_last}")
-        if st.button("▶ Запустить", use_container_width=True, type="primary"):
+        if st.button(
+            "▶ Запустить", use_container_width=True, type="primary",
+            help="Запускает collect_data.py — загружает для выбранных пар: "
+                 "тикеры (цена, объём), свечи OHLCV (для RSI и диапазона), "
+                 "фьючерсный фандинг и открытый интерес. "
+                 "Первый запуск загружает 200 свечей (прогрев RSI), последующие — по 3."
+        ):
             log_dir = BASE / "logs"
             log_dir.mkdir(exist_ok=True)
             with open(log_dir / "collect.log", "a") as log:
@@ -372,7 +447,12 @@ with st.sidebar:
 
     st.divider()
     st.subheader("Обновление")
-    if st.button("⬇ Обновить скрипты", use_container_width=True):
+    if st.button(
+        "⬇ Обновить скрипты", use_container_width=True,
+        help="Скачивает последнюю версию screener.py и pair_filters.py с GitHub "
+             "и автоматически перезапускает скринер. "
+             "Используй, когда вышло обновление."
+    ):
         bat = BASE / "update.bat"
         try:
             subprocess.Popen(["cmd", "/c", str(bat)], cwd=str(BASE))
@@ -381,10 +461,17 @@ with st.sidebar:
             st.error(f"Ошибка: {e}")
     st.divider()
 
-    st.session_state.col_auto = st.checkbox("Авто-сбор", value=st.session_state.col_auto)
+    st.session_state.col_auto = st.checkbox(
+        "Авто-сбор", value=st.session_state.col_auto,
+        help="Автоматически запускать коллектор через заданный интервал. "
+             "Удобно для постоянного мониторинга: данные будут всегда актуальными "
+             "без ручного нажатия «Запустить»."
+    )
     if st.session_state.col_auto:
         st.session_state.col_auto_min = st.slider(
-            "Каждые (мин)", 1, 60, st.session_state.col_auto_min
+            "Каждые (мин)", 1, 60, st.session_state.col_auto_min,
+            help="Интервал автоматического запуска коллектора. "
+                 "Рекомендуется 5–15 мин для скальпинга, 30–60 мин для свинга."
         )
 
 # ── Load data ─────────────────────────────────────────────────────────────────
@@ -524,11 +611,29 @@ with tab_selector:
             filter_settings[f["id"]] = val
 
     # ── Load all pairs and apply filters ─────────────────────────────────────
-    with st.spinner("Загрузка данных по всем парам..."):
+    with st.spinner("Загрузка данных с Binance API..."):
         all_df = get_all_pairs_data()
 
-    if all_df.empty:
-        st.warning("Нет данных. Запустите коллектор.")
+    api_failed = all_df.empty
+    if api_failed:
+        st.warning(
+            "⚠️ Нет ответа от Binance API — возможно, ограничен доступ (VPN/прокси/регион). "
+            "Показываются локально собранные данные."
+        )
+        col_retry, _ = st.columns([1, 3])
+        with col_retry:
+            if st.button("🔄 Повторить запрос", help="Очистить кэш и заново запросить данные с Binance API."):
+                fetch_all_binance_usdt_tickers.clear()
+                fetch_all_usdt_tick_sizes.clear()
+                st.rerun()
+        all_df = get_pairs_data_from_local()
+        if all_df.empty:
+            st.error(
+                "Локальных данных тоже нет. "
+                "Сначала запустите коллектор (кнопка «▶ Запустить» в сайдбаре) "
+                "чтобы собрать данные по парам из config.yaml."
+            )
+            st.stop()
     else:
         passed = apply_filters(all_df, filter_settings)
         passed = passed.sort_values("Score", ascending=True, na_position="last")
