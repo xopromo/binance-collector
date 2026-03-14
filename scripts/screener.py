@@ -4,6 +4,8 @@ import numpy as np
 from pathlib import Path
 import yaml
 import time
+import subprocess
+import sys
 
 BASE = Path(__file__).parent.parent
 
@@ -185,6 +187,54 @@ with st.sidebar:
     pump_thr = st.number_input("Pump/Dump %", value=3.0, step=0.5)
     vol_thr = st.number_input("Volume spike x", value=3.0, step=0.5)
 
+    st.divider()
+    st.subheader("Collector")
+
+    # Init session state
+    if "col_proc" not in st.session_state:
+        st.session_state.col_proc = None
+    if "col_last" not in st.session_state:
+        st.session_state.col_last = None
+    if "col_auto" not in st.session_state:
+        st.session_state.col_auto = False
+    if "col_auto_min" not in st.session_state:
+        st.session_state.col_auto_min = 5
+
+    proc = st.session_state.col_proc
+    is_running = proc is not None and proc.poll() is None
+
+    if is_running:
+        st.success("● Collecting...")
+        if st.button("■ Stop", use_container_width=True):
+            proc.terminate()
+            st.session_state.col_proc = None
+            st.rerun()
+    else:
+        if proc is not None:
+            # just finished
+            st.session_state.col_proc = None
+        if st.session_state.col_last:
+            st.caption(f"Last run: {st.session_state.col_last}")
+        if st.button("▶ Run now", use_container_width=True, type="primary"):
+            log_dir = BASE / "logs"
+            log_dir.mkdir(exist_ok=True)
+            with open(log_dir / "collect.log", "a") as log:
+                p = subprocess.Popen(
+                    [sys.executable, str(BASE / "scripts" / "collect_data.py")],
+                    stdout=log, stderr=log, cwd=str(BASE),
+                )
+            st.session_state.col_proc = p
+            st.session_state.col_last = pd.Timestamp.utcnow().strftime("%H:%M:%S UTC")
+            st.rerun()
+
+    st.session_state.col_auto = st.checkbox(
+        "Auto-collect", value=st.session_state.col_auto
+    )
+    if st.session_state.col_auto:
+        st.session_state.col_auto_min = st.slider(
+            "Every (min)", 1, 60, st.session_state.col_auto_min
+        )
+
 # ── Load data ─────────────────────────────────────────────────────────────────
 placeholder = st.empty()
 
@@ -296,6 +346,26 @@ with placeholder.container():
         f"Interval: {INTERVAL}  |  "
         f"Refreshing in {refresh_sec}s"
     )
+
+# Auto-collect logic
+if st.session_state.col_auto:
+    proc = st.session_state.col_proc
+    is_running = proc is not None and proc.poll() is None
+    if not is_running:
+        last = st.session_state.col_last
+        interval_sec = st.session_state.col_auto_min * 60
+        if last is None or (
+            pd.Timestamp.utcnow() - pd.Timestamp(last.replace(" UTC", ""), tz="UTC")
+        ).total_seconds() >= interval_sec:
+            log_dir = BASE / "logs"
+            log_dir.mkdir(exist_ok=True)
+            with open(log_dir / "collect.log", "a") as log:
+                p = subprocess.Popen(
+                    [sys.executable, str(BASE / "scripts" / "collect_data.py")],
+                    stdout=log, stderr=log, cwd=str(BASE),
+                )
+            st.session_state.col_proc = p
+            st.session_state.col_last = pd.Timestamp.utcnow().strftime("%H:%M:%S UTC")
 
 time.sleep(refresh_sec)
 st.rerun()
