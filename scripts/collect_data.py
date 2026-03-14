@@ -62,7 +62,7 @@ def collect_spot_ticker(symbol: str):
             "low_24h":         d["lowPrice"],
             "trades_24h":      d["count"],
         }
-        append_csv(DATA_PATH / "spot" / "tickers" / f"{symbol}.csv", pd.DataFrame([row]))
+        append_csv(DATA_PATH / "tickers" / f"{symbol}.csv", pd.DataFrame([row]))
         print(f"  [OK] ticker {symbol}: {d['lastPrice']}")
     except Exception as e:
         print(f"  [ERR] ticker {symbol}: {e}")
@@ -72,8 +72,11 @@ def collect_spot_ticker(symbol: str):
 
 def collect_ohlcv(symbol: str, interval: str):
     try:
+        csv_path = DATA_PATH / "ohlcv" / interval / f"{symbol}.csv"
+        # First run: load 200 candles for RSI warmup; subsequent runs: last 3
+        limit = 3 if (csv_path.exists() and csv_path.stat().st_size > 500) else 200
         data = get(f"{BINANCE_SPOT}/api/v3/klines",
-                   {"symbol": symbol, "interval": interval, "limit": 3})
+                   {"symbol": symbol, "interval": interval, "limit": limit})
         rows = []
         for k in data[:-1]:  # последняя свеча незакрыта — пропускаем
             open_time = datetime.fromtimestamp(k[0] / 1000, tz=timezone.utc)
@@ -89,7 +92,7 @@ def collect_ohlcv(symbol: str, interval: str):
             })
         if rows:
             append_csv(
-                DATA_PATH / "spot" / "ohlcv" / interval / f"{symbol}.csv",
+                DATA_PATH / "ohlcv" / interval / f"{symbol}.csv",
                 pd.DataFrame(rows)
             )
             print(f"  [OK] ohlcv {symbol} {interval}: +{len(rows)} candle(s)")

@@ -1,0 +1,270 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+<title>Binance Screener - Installer</title>
+<HTA:APPLICATION
+    APPLICATIONNAME="BinanceScreenerInstaller"
+    BORDER="dialog"
+    CAPTION="yes"
+    MAXIMIZEBUTTON="no"
+    MINIMIZEBUTTON="yes"
+    SCROLL="no"
+    SINGLEINSTANCE="yes"
+    WINDOWSTATE="normal"
+/>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: #0d1117;
+    color: #e6edf3;
+    padding: 24px;
+}
+h1  { color: #58a6ff; font-size: 20px; margin-bottom: 4px; }
+.sub { color: #8b949e; font-size: 12px; margin-bottom: 20px; }
+label { display: block; color: #8b949e; font-size: 12px; margin-top: 14px; margin-bottom: 4px; }
+input[type=text] {
+    width: 100%;
+    background: #161b22;
+    border: 1px solid #30363d;
+    color: #e6edf3;
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: 6px;
+}
+.note { color: #484f58; font-size: 11px; margin-top: 4px; }
+#btnInstall {
+    margin-top: 18px;
+    width: 100%;
+    padding: 11px;
+    background: #238636;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}
+#btnInstall:disabled { background: #21262d; color: #484f58; cursor: default; }
+#log {
+    margin-top: 16px;
+    width: 100%;
+    height: 300px;
+    background: #010409;
+    border: 1px solid #30363d;
+    color: #7ee787;
+    font-family: 'Cascadia Code', 'Consolas', monospace;
+    font-size: 11px;
+    padding: 10px;
+    border-radius: 6px;
+    resize: none;
+    overflow-y: auto;
+}
+#statusNote { margin-top: 8px; color: #8b949e; font-size: 12px; }
+.warn { color: #f0883e; font-size: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+
+<h1>&#128200; Binance Screener - Installer</h1>
+<p class="sub">Downloads project, installs dependencies and launches the screener automatically.</p>
+
+<p class="warn">&#9888; VPN must be ON (Netherlands / Germany / Singapore)</p>
+
+<label>Install folder:</label>
+<input type="text" id="installDir" value="C:\BinanceScreener">
+
+<label>GitHub Token <span style="color:#484f58">(optional - to save data to cloud)</span>:</label>
+<input type="text" id="ghToken" placeholder="ghp_...">
+<p class="note">Get token at: github.com/settings/tokens (scope: repo)</p>
+
+<button id="btnInstall" onclick="StartInstall()">&#9654; Install and Launch</button>
+
+<textarea id="log" readonly></textarea>
+<p id="statusNote">Ready to install.</p>
+
+<script language="VBScript">
+Option Explicit
+
+Dim oShell, oFSO, g_logFile, g_psFile, g_done
+Set oShell = CreateObject("WScript.Shell")
+Set oFSO   = CreateObject("Scripting.FileSystemObject")
+g_logFile  = oShell.ExpandEnvironmentStrings("%TEMP%\binance_install.log")
+g_psFile   = oShell.ExpandEnvironmentStrings("%TEMP%\binance_install.ps1")
+g_done     = False
+
+window.resizeTo 620, 720
+window.moveTo (screen.availWidth  - 620) \ 2, (screen.availHeight - 720) \ 2
+
+Sub StartInstall()
+    Dim installDir, ghToken
+    installDir = Trim(document.getElementById("installDir").value)
+    ghToken    = Trim(document.getElementById("ghToken").value)
+
+    If installDir = "" Then
+        MsgBox "Please enter install folder.", 48, "Error"
+        Exit Sub
+    End If
+
+    document.getElementById("btnInstall").disabled = True
+    document.getElementById("log").value = ""
+    document.getElementById("statusNote").innerText = "Installing..."
+    g_done = False
+
+    If oFSO.FileExists(g_logFile) Then oFSO.DeleteFile g_logFile
+
+    WritePSScript installDir, ghToken
+
+    Dim oShellApp
+    Set oShellApp = CreateObject("Shell.Application")
+    oShellApp.ShellExecute "powershell.exe", _
+        "-ExecutionPolicy Bypass -NonInteractive -WindowStyle Hidden -File """ & g_psFile & """", _
+        "", "runas", 1
+
+    window.setInterval "PollLog()", 600
+End Sub
+
+Sub PollLog()
+    If Not oFSO.FileExists(g_logFile) Then Exit Sub
+
+    Dim oFile, content
+    On Error Resume Next
+    Set oFile = oFSO.OpenTextFile(g_logFile, 1, False)
+    If Err.Number <> 0 Then Err.Clear : Exit Sub
+    content = oFile.ReadAll()
+    oFile.Close
+    On Error GoTo 0
+
+    Dim ta
+    Set ta = document.getElementById("log")
+    ta.value = content
+    ta.scrollTop = ta.scrollHeight
+
+    If InStr(content, "##DONE##") > 0 And Not g_done Then
+        g_done = True
+        document.getElementById("statusNote").innerText = "Done! Launching screener..."
+        document.getElementById("btnInstall").disabled  = False
+        document.getElementById("btnInstall").innerText = "Launch Screener Again"
+        ' Launch screener from user context (not elevated) so Python PATH works
+        Dim installDir
+        installDir = Trim(document.getElementById("installDir").value)
+        oShell.Run "cmd /c """ & installDir & "\run_screener.bat""", 0, False
+        window.setTimeout "OpenBrowser()", 5000
+    End If
+
+    If InStr(content, "##ERROR##") > 0 And Not g_done Then
+        g_done = True
+        document.getElementById("statusNote").innerText = "Error during install. Check log above."
+        document.getElementById("btnInstall").disabled  = False
+    End If
+End Sub
+
+Sub OpenBrowser()
+    oShell.Run "http://localhost:8501", 1, False
+    document.getElementById("statusNote").innerText = "Screener: http://localhost:8501"
+End Sub
+
+Sub WritePSScript(installDir, ghToken)
+    Dim f
+    Set f = oFSO.CreateTextFile(g_psFile, True, False)
+
+    Dim Q : Q = Chr(39)
+
+    f.WriteLine "$installDir = " & Q & Replace(installDir, "'", "''") & Q
+    f.WriteLine "$logFile    = " & Q & Replace(g_logFile,  "'", "''") & Q
+    f.WriteLine "$ghToken    = " & Q & Replace(ghToken,    "'", "''") & Q
+    f.WriteLine "$zipUrl     = 'https://github.com/xopromo/binance-collector/archive/refs/heads/main.zip'"
+    f.WriteLine "$zipPath    = Join-Path $installDir 'setup.zip'"
+    f.WriteLine "$extDir     = Join-Path $installDir 'setup_extract'"
+    f.WriteLine ""
+    f.WriteLine "function Log($msg) {"
+    f.WriteLine "    $ts = Get-Date -Format 'HH:mm:ss'"
+    f.WriteLine "    Add-Content -Path $logFile -Value ""[$ts] $msg"" -Encoding UTF8"
+    f.WriteLine "}"
+    f.WriteLine ""
+    f.WriteLine "try {"
+    f.WriteLine ""
+    f.WriteLine "Log 'Step 1/6  Creating install folder...'"
+    f.WriteLine "New-Item -ItemType Directory -Path $installDir -Force | Out-Null"
+    f.WriteLine "Log ""  -> $installDir"""
+    f.WriteLine ""
+    f.WriteLine "Log 'Step 2/6  Downloading project from GitHub...'"
+    f.WriteLine "Log '          (If stuck - check VPN is ON)'"
+    f.WriteLine "try {"
+    f.WriteLine "    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12"
+    f.WriteLine "    Invoke-WebRequest -Uri $zipUrl -OutFile $zipPath -UseBasicParsing"
+    f.WriteLine "    Log '  -> Downloaded OK'"
+    f.WriteLine "} catch {"
+    f.WriteLine "    Log ""  -> ERROR: $_"""
+    f.WriteLine "    Log '  -> Check VPN (Netherlands/Germany)!'"
+    f.WriteLine "    Add-Content -Path $logFile -Value '##ERROR##' -Encoding UTF8"
+    f.WriteLine "    exit 1"
+    f.WriteLine "}"
+    f.WriteLine ""
+    f.WriteLine "Log 'Step 3/6  Extracting...'"
+    f.WriteLine "if (Test-Path $extDir) { Remove-Item $extDir -Recurse -Force }"
+    f.WriteLine "Expand-Archive -Path $zipPath -DestinationPath $extDir -Force"
+    f.WriteLine "$inner = (Get-ChildItem $extDir | Select-Object -First 1).FullName"
+    f.WriteLine "Copy-Item -Path (Join-Path $inner '*') -Destination $installDir -Recurse -Force"
+    f.WriteLine "Remove-Item $extDir -Recurse -Force"
+    f.WriteLine "Remove-Item $zipPath -Force"
+    f.WriteLine "Log '  -> Extracted OK'"
+    f.WriteLine ""
+    f.WriteLine "Log 'Step 4/6  Checking Python...'"
+    f.WriteLine "$python = $null"
+    f.WriteLine "foreach ($cmd in @('python','python3','py')) {"
+    f.WriteLine "    try {"
+    f.WriteLine "        $v = & $cmd --version 2>&1"
+    f.WriteLine "        if ($v -match 'Python') { $python = $cmd; Log ""  -> Found: $v""; break }"
+    f.WriteLine "    } catch {}"
+    f.WriteLine "}"
+    f.WriteLine "if ($null -eq $python) {"
+    f.WriteLine "    Log '  -> Python not found. Downloading 3.11...'"
+    f.WriteLine "    $pyInst = Join-Path $env:TEMP 'python_installer.exe'"
+    f.WriteLine "    Invoke-WebRequest 'https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe' -OutFile $pyInst -UseBasicParsing"
+    f.WriteLine "    Start-Process $pyInst -ArgumentList '/quiet InstallAllUsers=0 PrependPath=1' -Wait"
+    f.WriteLine "    $env:PATH = [System.Environment]::GetEnvironmentVariable('PATH','User') + ';' + $env:PATH"
+    f.WriteLine "    $python = 'python'"
+    f.WriteLine "    Log '  -> Python 3.11 installed OK'"
+    f.WriteLine "}"
+    f.WriteLine ""
+    f.WriteLine "if ($ghToken -ne '') {"
+    f.WriteLine "    Set-Content -Path (Join-Path $installDir 'github_token.txt') -Value $ghToken -NoNewline"
+    f.WriteLine "    Log '  -> GitHub token saved'"
+    f.WriteLine "}"
+    f.WriteLine ""
+    f.WriteLine "Log 'Step 5/6  Installing Python packages (1-2 min)...'"
+    f.WriteLine "$req = Join-Path $installDir 'scripts\requirements.txt'"
+    f.WriteLine "& $python -m pip install -r $req --quiet 2>&1 | Out-Null"
+    f.WriteLine "Log '  -> Packages installed OK'"
+    f.WriteLine ""
+    f.WriteLine "Log 'Step 6/6  Creating scheduled tasks...'"
+    f.WriteLine "$cbat = Join-Path $installDir 'run_collect.bat'"
+    f.WriteLine "$pbat = Join-Path $installDir 'run_push.bat'"
+    f.WriteLine "schtasks /delete /tn 'BinanceCollector'  /f 2>$null | Out-Null"
+    f.WriteLine "schtasks /delete /tn 'BinanceGithubPush' /f 2>$null | Out-Null"
+    f.WriteLine "schtasks /create /tn 'BinanceCollector'  /tr ""cmd /c $cbat"" /sc minute /mo 5  /st 00:00 /ru $env:USERNAME /f | Out-Null"
+    f.WriteLine "schtasks /create /tn 'BinanceGithubPush' /tr ""cmd /c $pbat"" /sc hourly        /st 00:30 /ru $env:USERNAME /f | Out-Null"
+    f.WriteLine "Log '  -> collect every 5 min, push every hour'"
+    f.WriteLine ""
+    f.WriteLine "Log ''"
+    f.WriteLine "Log 'Running first data collection...'"
+    f.WriteLine "& $python (Join-Path $installDir 'scripts\collect_data.py') 2>&1 | ForEach-Object { Log $_ }"
+    f.WriteLine ""
+    f.WriteLine ""
+    f.WriteLine "Log ''"
+    f.WriteLine "Log '=== Installation complete! ==='"
+    f.WriteLine "Log 'Screener: http://localhost:8501'"
+    f.WriteLine "Log 'Data is collected every 5 min automatically.'"
+    f.WriteLine "Add-Content -Path $logFile -Value '##DONE##' -Encoding UTF8"
+    f.WriteLine ""
+    f.WriteLine "} catch {"
+    f.WriteLine "    Log ""FATAL: $_"""
+    f.WriteLine "    Add-Content -Path $logFile -Value '##ERROR##' -Encoding UTF8"
+    f.WriteLine "}"
+
+    f.Close
+End Sub
+</script>
+</body>
+</html>
