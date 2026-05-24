@@ -1,9 +1,18 @@
 /**
  * dashboard.js — Main Trading Strategy Dashboard
  * Reads signals and trades from JSON files, renders UI
+ * Features: Timeframe selector, Symbol selector, Strategy editor
  */
 
 import { renderPnlChart, destroyChart, STRATEGY_COLORS } from './charts.js';
+import {
+  openStrategyEditor,
+  getStrategyOverrides,
+  getSelectedSymbol,
+  setSelectedSymbol,
+  getSelectedTimeframe,
+  setSelectedTimeframe,
+} from './strategy-editor.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const REFRESH_INTERVAL = 60; // seconds
@@ -15,13 +24,25 @@ let strategies  = {};        // merged from both sources
 let activeTab   = 'all';     // 'all' | strategy id
 let refreshTimer = null;
 let secondsLeft  = REFRESH_INTERVAL;
+let selectedSymbolFilter = ''; // filter by selected symbol
+let selectedTimeframeFilter = '1'; // default 1m
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  // Restore selections from localStorage
+  selectedSymbolFilter = getSelectedSymbol();
+  selectedTimeframeFilter = getSelectedTimeframe();
+
   await loadData();
   renderAll();
   startRefreshLoop();
   setupEventListeners();
+  setupSelectors();
+
+  // Listen for strategy updates
+  window.addEventListener('strategyUpdated', () => {
+    renderAll();
+  });
 });
 
 // ── Data Loading ──────────────────────────────────────────────────────────────
@@ -131,9 +152,14 @@ function renderMiniSignals() {
   const container = document.getElementById('miniSignalsGrid');
   if (!container) return;
 
-  const ids = Object.keys(strategies);
+  // Filter strategies by symbol if selected
+  let ids = Object.keys(strategies);
+  if (selectedSymbolFilter) {
+    ids = ids.filter(id => strategies[id].symbol === selectedSymbolFilter);
+  }
+
   if (ids.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📡</div><div class="empty-state-text">Нет стратегий</div></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📡</div><div class="empty-state-text">Нет стратегий${selectedSymbolFilter ? ' для выбранного символа' : ''}</div></div>`;
     return;
   }
 
@@ -143,6 +169,12 @@ function renderMiniSignals() {
     const signal = sig.signal || 'NO_SIGNAL';
     const stats = s.stats || {};
     const color = STRATEGY_COLORS[i % STRATEGY_COLORS.length].line;
+
+    // Get overrides from localStorage
+    const overrides = getStrategyOverrides(id);
+    const displayDesc = overrides.description || s.description || '';
+    const displayTp = overrides.tp_percent !== undefined ? overrides.tp_percent : s.tp_percent;
+    const displaySl = overrides.sl_percent !== undefined ? overrides.sl_percent : s.sl_percent;
 
     return `<div class="mini-signal" data-id="${id}">
       <div class="mini-signal-header">
@@ -176,16 +208,34 @@ function renderMiniSignals() {
           </div>
         </div>
       </div>
+      ${displayDesc ? `<div style="font-size:0.78rem;color:var(--text-muted);line-height:1.4;margin-bottom:8px">${displayDesc}</div>` : ''}
       ${sig.reasoning ? `<div style="font-size:0.78rem;color:var(--text-muted);line-height:1.4;border-top:1px solid var(--border);padding-top:8px">${sig.reasoning}</div>` : ''}
+      ${displayTp || displaySl ? `<div style="font-size:0.75rem;color:var(--accent-blue);margin-top:8px">TP: ${displayTp || '—'}% / SL: ${displaySl || '—'}%</div>` : ''}
+      <div class="mini-signal-actions">
+        <button class="mini-signal-edit-btn" data-id="${id}">✎ Редактировать</button>
+      </div>
     </div>`;
   }).join('');
 
   // Click to switch tab
   container.querySelectorAll('.mini-signal').forEach(el => {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.mini-signal-edit-btn')) {
+        // Don't switch tab if clicking edit button
+        return;
+      }
       activeTab = el.dataset.id;
       renderTabs();
       renderView();
+    });
+  });
+
+  // Add edit button handlers
+  container.querySelectorAll('.mini-signal-edit-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const stratId = btn.dataset.id;
+      openStrategyEditor(stratId, strategies[stratId]);
     });
   });
 }
@@ -421,6 +471,67 @@ function setupEventListeners() {
       renderAll();
     });
   }
+}
+
+function setupSelectors() {
+  setupSymbolSelector();
+  setupTimeframeSelector();
+}
+
+function setupSymbolSelector() {
+  const selector = document.getElementById('symbolSelector');
+  if (!selector) return;
+
+  // Collect all unique symbols from strategies
+  const symbols = new Set();
+  Object.values(strategies).forEach(s => {
+    if (s.symbol) symbols.add(s.symbol);
+  });
+
+  const sortedSymbols = Array.from(symbols).sort();
+
+  // Build options
+  let html = '<option value="">Все символы</option>';
+  sortedSymbols.forEach(sym => {
+    html += `<option value="${sym}" ${selectedSymbolFilter === sym ? 'selected' : ''}>${sym}</option>`;
+  });
+
+  selector.innerHTML = html;
+
+  // Event listener
+  selector.addEventListener('change', (e) => {
+    selectedSymbolFilter = e.target.value;
+    setSelectedSymbol(selectedSymbolFilter);
+    renderMiniSignals();
+  });
+}
+
+function setupTimeframeSelector() {
+  const group = document.getElementById('timeframeGroup');
+  if (!group) return;
+
+  // Update active button
+  group.querySelectorAll('.tf-btn').forEach(btn => {
+    btn.classList.remove('active');
+    if (btn.dataset.tf === selectedTimeframeFilter) {
+      btn.classList.add('active');
+    }
+  });
+
+  // Event listeners
+  group.querySelectorAll('.tf-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedTimeframeFilter = btn.dataset.tf;
+      setSelectedTimeframe(selectedTimeframeFilter);
+
+      // Update UI
+      group.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Could add filtering logic here in future
+      showToast(`Таймфрейм: ${btn.textContent}`, 'info');
+    });
+  });
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

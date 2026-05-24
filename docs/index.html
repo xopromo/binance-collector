@@ -39,6 +39,28 @@
   </div>
 </header>
 
+<!-- ═══════════════════ CONTROLS ROW ═══════════════════ -->
+<div class="controls-bar">
+  <div class="controls-group">
+    <label class="control-label">Символ</label>
+    <select id="symbolSelector" class="selector-dropdown">
+      <option value="">Загрузка...</option>
+    </select>
+  </div>
+
+  <div class="controls-group">
+    <label class="control-label">Таймфрейм</label>
+    <div class="timeframe-buttons" id="timeframeGroup">
+      <button class="tf-btn" data-tf="1" title="1 минута">1м</button>
+      <button class="tf-btn" data-tf="5" title="5 минут">5м</button>
+      <button class="tf-btn" data-tf="15" title="15 минут">15м</button>
+      <button class="tf-btn" data-tf="60" title="1 час">1ч</button>
+      <button class="tf-btn" data-tf="240" title="4 часа">4ч</button>
+      <button class="tf-btn" data-tf="1440" title="1 день">1д</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════ MAIN ═══════════════════ -->
 <main class="container">
 
@@ -62,6 +84,11 @@
         <div class="spinner"></div>
         Загрузка стратегий...
       </div>
+    </div>
+
+    <!-- Edit button area info -->
+    <div style="margin-top: 16px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.8rem; color: var(--text-muted);">
+      <strong>💡 Совет:</strong> Нажмите кнопку ✎ на карточке стратегии, чтобы отредактировать параметры локально.
     </div>
 
   </div>
@@ -162,8 +189,77 @@
   <div class="refresh-progress" id="refreshProgress" style="width:0%"></div>
 </div>
 
+<!-- ═══════════════════ STRATEGY EDITOR MODAL ═══════════════════ -->
+<div id="editorModal" class="modal" style="display:none">
+  <div class="modal-overlay"></div>
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="editorTitle">Редактирование стратегии</h2>
+      <button class="modal-close" id="closeModalBtn">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <form id="strategyEditorForm">
+
+        <div class="form-group">
+          <label class="form-label">Название стратегии</label>
+          <input type="text" id="editorName" class="form-input" readonly style="background: var(--bg-secondary); cursor: not-allowed;">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Символ</label>
+          <input type="text" id="editorSymbol" class="form-input" readonly style="background: var(--bg-secondary); cursor: not-allowed;">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Таймфрейм</label>
+          <input type="text" id="editorTimeframe" class="form-input" readonly style="background: var(--bg-secondary); cursor: not-allowed;">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Описание</label>
+          <textarea id="editorDescription" class="form-textarea" placeholder="Описание стратегии..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Условия входа</label>
+          <textarea id="editorEntryConditions" class="form-textarea" placeholder="Условия для открытия позиции..."></textarea>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Условия выхода</label>
+          <textarea id="editorExitConditions" class="form-textarea" placeholder="Условия для закрытия позиции..."></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+          <div class="form-group">
+            <label class="form-label">Take Profit %</label>
+            <input type="number" id="editorTpPercent" class="form-input" step="0.01" placeholder="2.5">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Stop Loss %</label>
+            <input type="number" id="editorSlPercent" class="form-input" step="0.01" placeholder="1.0">
+          </div>
+        </div>
+
+      </form>
+    </div>
+
+    <div class="modal-footer">
+      <button id="cancelEditBtn" class="btn" style="background: var(--bg-card);">Отменить</button>
+      <button id="saveEditBtn" class="btn active">Сохранить изменения</button>
+    </div>
+
+    <div class="modal-note">
+      <strong>ℹ️ Примечание:</strong> Изменения сохраняются локально в браузере (localStorage).
+      Чтобы сохранить в репозитории, отредактируйте файл <code>strategies/strategy_XXX.json</code>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════════════ SCRIPTS ═══════════════════ -->
 <script type="module" src="js/dashboard.js"></script>
+<script type="module" src="js/strategy-editor.js"></script>
 
 </body>
 </html>
