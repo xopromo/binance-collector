@@ -105,7 +105,7 @@ function renderTabs() {
   });
   el.innerHTML = html;
   el.querySelectorAll('.tab').forEach(btn => {
-    btn.addEventListener('click', () => { activeTab = btn.dataset.id; renderTabs(); renderView(); });
+    btn.addEventListener('click', () => { activeTab = btn.dataset.id; renderTabs(); renderView(); renderLogs(); });
   });
 }
 
@@ -493,9 +493,25 @@ function renderLogs() {
     return;
   }
 
-  if (countEl) countEl.textContent = `${logsData.length} записей`;
+  // Filter by active tab (strategy) or selected symbol
+  let filtered = logsData;
+  if (activeTab !== 'all') {
+    filtered = logsData.filter(e => e.strategy_id === activeTab);
+  } else if (selectedSymbol) {
+    filtered = logsData.filter(e => e.symbol === selectedSymbol);
+  }
 
-  container.innerHTML = logsData.map((entry, idx) => {
+  if (countEl) countEl.textContent = filtered.length !== logsData.length
+    ? `${filtered.length} из ${logsData.length} записей`
+    : `${logsData.length} записей`;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">🔍</div>
+      <div class="empty-state-text">Нет логов для выбранной стратегии</div></div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map((entry, idx) => {
     const sig  = entry.signal || 'NO_SIGNAL';
     const dur  = entry.duration_ms ? `${(entry.duration_ms/1000).toFixed(1)}с` : '';
     const conf = entry.confidence || '';
@@ -560,6 +576,7 @@ function setupSymbolSelector() {
     setPref('symbol', selectedSymbol);
     renderMiniSignals();
     updateTradingViewChart();
+    renderLogs();
   });
 }
 
