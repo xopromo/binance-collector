@@ -6,6 +6,7 @@
   "scripts": {
     "analyze": "node scripts/run_analysis.js",
     "analyze:strategy": "node scripts/run_analysis.js --strategy",
+    "analyze:watch": "node scripts/run_analysis.js --watch",
     "collect": "node scripts/collect_data.js",
     "push": "node scripts/push_results.js",
     "push:all": "node scripts/push_results.js --all"

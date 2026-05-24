@@ -7,15 +7,12 @@
   <meta name="description" content="Мониторинг торговых стратегий в реальном времени" />
   <meta name="theme-color" content="#0d1117" />
 
-  <!-- Preconnect -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-
-  <!-- Styles -->
+  <script src="https://s3.tradingview.com/tv.js"></script>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
@@ -28,7 +25,6 @@
       Дашборд стратегий
     </a>
   </div>
-
   <div class="header-right">
     <div class="status-badge">
       <div class="status-dot"></div>
@@ -40,25 +36,29 @@
 </header>
 
 <!-- ═══════════════════ CONTROLS ROW ═══════════════════ -->
-<div class="controls-bar">
+<div class="controls-bar container-wide">
   <div class="controls-group">
     <label class="control-label">Символ</label>
     <select id="symbolSelector" class="selector-dropdown">
-      <option value="">Загрузка...</option>
+      <option value="">Все символы</option>
     </select>
   </div>
-
   <div class="controls-group">
     <label class="control-label">Таймфрейм</label>
     <div class="timeframe-buttons" id="timeframeGroup">
-      <button class="tf-btn" data-tf="1" title="1 минута">1м</button>
-      <button class="tf-btn" data-tf="5" title="5 минут">5м</button>
-      <button class="tf-btn" data-tf="15" title="15 минут">15м</button>
-      <button class="tf-btn" data-tf="60" title="1 час">1ч</button>
-      <button class="tf-btn" data-tf="240" title="4 часа">4ч</button>
-      <button class="tf-btn" data-tf="1440" title="1 день">1д</button>
+      <button class="tf-btn" data-tf="1">1м</button>
+      <button class="tf-btn" data-tf="5">5м</button>
+      <button class="tf-btn" data-tf="15">15м</button>
+      <button class="tf-btn" data-tf="60">1ч</button>
+      <button class="tf-btn" data-tf="240">4ч</button>
+      <button class="tf-btn" data-tf="1440">1д</button>
     </div>
   </div>
+</div>
+
+<!-- ═══════════════════ TRADINGVIEW CHART ═══════════════════ -->
+<div class="tv-chart-section container-wide">
+  <div id="tv_chart_container"></div>
 </div>
 
 <!-- ═══════════════════ MAIN ═══════════════════ -->
@@ -66,7 +66,10 @@
 
   <!-- Strategy Tabs -->
   <div class="tabs-wrapper">
-    <div class="tabs-label">Стратегия</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="tabs-label" style="margin-bottom:0">Стратегия</div>
+      <button class="btn btn-sm" id="addStrategyBtn" style="color:var(--accent-green);border-color:var(--accent-green)">+ Новая стратегия</button>
+    </div>
     <div class="tabs" id="strategyTabs">
       <button class="tab all active" data-id="all">
         <span class="tab-dot" style="background:linear-gradient(135deg,#bc8cff,#58a6ff)"></span>
@@ -75,27 +78,62 @@
     </div>
   </div>
 
-  <!-- ─── ALL STRATEGIES VIEW ─── -->
-  <div id="allSignalsSection">
-
-    <div class="section-title">Текущие сигналы</div>
-    <div class="signals-grid" id="miniSignalsGrid">
-      <div class="loading">
-        <div class="spinner"></div>
-        Загрузка стратегий...
+  <!-- New Strategy Form (hidden by default) -->
+  <div id="newStrategyForm" class="new-strategy-form" style="display:none">
+    <div class="new-strategy-title">Новая стратегия</div>
+    <div class="ns-grid">
+      <div class="ns-field">
+        <label class="form-label">Название</label>
+        <input type="text" id="ns_name" class="form-input" placeholder="Моя стратегия">
+      </div>
+      <div class="ns-field">
+        <label class="form-label">Символ (напр. BINANCE:BTCUSDT.P)</label>
+        <input type="text" id="ns_symbol" class="form-input" placeholder="BINANCE:BTCUSDT.P">
+      </div>
+      <div class="ns-field">
+        <label class="form-label">Таймфрейм (мин)</label>
+        <input type="number" id="ns_timeframe" class="form-input" value="5" min="1">
+      </div>
+      <div class="ns-field">
+        <label class="form-label">TP %</label>
+        <input type="number" id="ns_tp" class="form-input" value="2.0" step="0.1">
+      </div>
+      <div class="ns-field">
+        <label class="form-label">SL %</label>
+        <input type="number" id="ns_sl" class="form-input" value="1.0" step="0.1">
+      </div>
+      <div class="ns-field">
+        <label class="form-label">Риск на сделку %</label>
+        <input type="number" id="ns_risk" class="form-input" value="1.0" step="0.1">
       </div>
     </div>
-
-    <!-- Edit button area info -->
-    <div style="margin-top: 16px; padding: 12px; background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); font-size: 0.8rem; color: var(--text-muted);">
-      <strong>💡 Совет:</strong> Нажмите кнопку ✎ на карточке стратегии, чтобы отредактировать параметры локально.
+    <div class="ns-field" style="margin-top:12px">
+      <label class="form-label">Описание стратегии</label>
+      <textarea id="ns_description" class="form-textarea" placeholder="Кратко опишите стратегию..."></textarea>
     </div>
+    <div class="ns-field">
+      <label class="form-label">Условия входа (промпт для AI)</label>
+      <textarea id="ns_entry" class="form-textarea" placeholder="Опиши точные условия для входа в позицию. AI будет читать этот текст при каждом анализе."></textarea>
+    </div>
+    <div class="ns-field">
+      <label class="form-label">Условия выхода</label>
+      <textarea id="ns_exit" class="form-textarea" placeholder="Когда закрывать позицию..."></textarea>
+    </div>
+    <div class="ns-actions">
+      <button class="btn" id="cancelNewStrategyBtn">Отмена</button>
+      <button class="btn active" id="downloadNewStrategyBtn">📥 Скачать JSON и сохранить в strategies/</button>
+    </div>
+  </div>
 
+  <!-- ─── ALL STRATEGIES VIEW ─── -->
+  <div id="allSignalsSection">
+    <div class="section-title">Текущие сигналы</div>
+    <div class="signals-grid" id="miniSignalsGrid">
+      <div class="loading"><div class="spinner"></div> Загрузка...</div>
+    </div>
   </div>
 
   <!-- ─── SINGLE STRATEGY VIEW ─── -->
-
-  <!-- Signal Box -->
   <section id="signalSection" style="display:none;margin-bottom:20px">
     <div class="section-title">Текущий сигнал</div>
     <div id="signalBox" class="signal-box NO_SIGNAL">
@@ -110,22 +148,16 @@
     </div>
   </section>
 
-  <!-- Stats -->
   <section id="statsSection" style="display:none;margin-bottom:20px">
     <div class="section-title">Статистика</div>
-    <div class="grid-4" id="statsGrid">
-      <!-- Generated by JS -->
-    </div>
+    <div class="grid-4" id="statsGrid"></div>
   </section>
 
-  <!-- ─── PnL CHART (shown for both views) ─── -->
+  <!-- PnL Chart -->
   <section style="margin-bottom:20px">
     <div class="card">
       <div class="card-header">
         <span class="section-title" style="margin-bottom:0">График PnL</span>
-        <div id="chartControls" class="chart-controls" style="margin-bottom:0">
-          <!-- Chart filter buttons could be added here -->
-        </div>
       </div>
       <div class="chart-wrapper">
         <canvas id="pnlChart"></canvas>
@@ -143,24 +175,17 @@
         <table>
           <thead>
             <tr>
-              <th>Дата</th>
-              <th>Направление</th>
-              <th>Вход</th>
-              <th>Выход</th>
-              <th>PnL%</th>
-              <th>Причина выхода</th>
-              <th>Символ</th>
+              <th>Дата</th><th>Направление</th><th>Вход</th><th>Выход</th>
+              <th>PnL%</th><th>Причина</th><th>Символ</th>
             </tr>
           </thead>
           <tbody id="tradeTableBody">
-            <tr>
-              <td colspan="7">
-                <div class="empty-state">
-                  <div class="empty-state-icon">📋</div>
-                  <div class="empty-state-text">Нет завершённых сделок</div>
-                </div>
-              </td>
-            </tr>
+            <tr><td colspan="7">
+              <div class="empty-state">
+                <div class="empty-state-icon">📋</div>
+                <div class="empty-state-text">Нет завершённых сделок</div>
+              </div>
+            </td></tr>
           </tbody>
         </table>
       </div>
@@ -173,97 +198,29 @@
       <div class="card-header">
         <span class="section-title" style="margin-bottom:0">Конфигурация стратегии</span>
       </div>
-      <div id="strategyConfig">
-        <!-- Generated by JS -->
-      </div>
+      <div id="strategyConfig"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════ REASONING LOGS ═══════════════════ -->
+  <section style="margin-bottom:40px">
+    <div class="section-title">Лог рассуждений AI</div>
+    <div class="logs-toolbar">
+      <span id="logsCount" style="font-size:0.8rem;color:var(--text-muted)">Загрузка...</span>
+      <button class="btn btn-sm" id="clearLogsFilterBtn" style="display:none">✕ Сбросить фильтр</button>
+    </div>
+    <div id="logsContainer" class="logs-container">
+      <div class="loading"><div class="spinner"></div> Загрузка логов...</div>
     </div>
   </section>
 
 </main>
 
-<!-- ═══════════════════ TOAST CONTAINER ═══════════════════ -->
 <div id="toast-container"></div>
-
-<!-- ═══════════════════ REFRESH BAR ═══════════════════ -->
 <div class="refresh-bar">
   <div class="refresh-progress" id="refreshProgress" style="width:0%"></div>
 </div>
 
-<!-- ═══════════════════ STRATEGY EDITOR MODAL ═══════════════════ -->
-<div id="editorModal" class="modal" style="display:none">
-  <div class="modal-overlay"></div>
-  <div class="modal-content">
-    <div class="modal-header">
-      <h2 id="editorTitle">Редактирование стратегии</h2>
-      <button class="modal-close" id="closeModalBtn">✕</button>
-    </div>
-
-    <div class="modal-body">
-      <form id="strategyEditorForm">
-
-        <div class="form-group">
-          <label class="form-label">Название стратегии</label>
-          <input type="text" id="editorName" class="form-input" readonly style="background: var(--bg-secondary); cursor: not-allowed;">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Символ</label>
-          <input type="text" id="editorSymbol" class="form-input" readonly style="background: var(--bg-secondary); cursor: not-allowed;">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Таймфрейм</label>
-          <input type="text" id="editorTimeframe" class="form-input" readonly style="background: var(--bg-secondary); cursor: not-allowed;">
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Описание</label>
-          <textarea id="editorDescription" class="form-textarea" placeholder="Описание стратегии..."></textarea>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Условия входа</label>
-          <textarea id="editorEntryConditions" class="form-textarea" placeholder="Условия для открытия позиции..."></textarea>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Условия выхода</label>
-          <textarea id="editorExitConditions" class="form-textarea" placeholder="Условия для закрытия позиции..."></textarea>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-          <div class="form-group">
-            <label class="form-label">Take Profit %</label>
-            <input type="number" id="editorTpPercent" class="form-input" step="0.01" placeholder="2.5">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Stop Loss %</label>
-            <input type="number" id="editorSlPercent" class="form-input" step="0.01" placeholder="1.0">
-          </div>
-        </div>
-
-      </form>
-    </div>
-
-    <div class="modal-footer">
-      <button id="cancelEditBtn" class="btn" style="background: var(--bg-card);">Отменить</button>
-      <button id="downloadJsonBtn" class="btn" style="background: var(--bg-card); color: var(--accent-blue);">📥 Скачать JSON</button>
-      <button id="saveEditBtn" class="btn active">Сохранить локально</button>
-    </div>
-
-    <div class="modal-note">
-      <strong>ℹ️ Как применить изменения к анализу:</strong><br>
-      1. Нажми <strong>📥 Скачать JSON</strong><br>
-      2. Замени файл <code>strategies/strategy_XXX.json</code> в репозитории скачанным файлом<br>
-      3. Запусти <code>npm run analyze</code> — стратегия обновится<br>
-      <span style="color:var(--text-muted)">«Сохранить локально» — сохраняет только в этом браузере для отображения на дашборде.</span>
-    </div>
-  </div>
-</div>
-
-<!-- ═══════════════════ SCRIPTS ═══════════════════ -->
 <script type="module" src="js/dashboard.js"></script>
-<script type="module" src="js/strategy-editor.js"></script>
-
 </body>
 </html>

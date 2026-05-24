@@ -45,6 +45,10 @@ const CLAUDE_BIN = process.platform === 'win32' ? 'claude.cmd' : 'claude';
 const STRATEGIES_DIR = path.join(ROOT, 'strategies');
 const SIGNALS_PATH   = path.join(ROOT, 'docs', 'signals', 'latest.json');
 const TRADES_PATH    = path.join(ROOT, 'docs', 'trades', 'log.json');
+const LOGS_PATH      = path.join(ROOT, 'docs', 'logs', 'analysis.log.json');
+
+const WATCH_MODE = args.includes('--watch');
+const WATCH_INTERVAL_MS = parseInt(process.env.WATCH_INTERVAL || '60') * 1000;
 
 // ── Вызов Claude Code CLI ─────────────────────────────────────────────────────
 function callClaude(prompt, model) {
@@ -258,11 +262,19 @@ async function ensureTradesEntry(strategy) {
   }
 }
 
+async function appendLog(entry) {
+  const logs = await readJson(LOGS_PATH, []);
+  const arr = Array.isArray(logs) ? logs : [];
+  arr.unshift(entry);           // newest first
+  if (arr.length > 200) arr.length = 200;
+  await writeJson(LOGS_PATH, arr);
+}
+
 function gitPush() {
   if (DRY_RUN) { console.log('🚫 DRY_RUN: пропуск git push'); return; }
   try {
     console.log('📤 Публикация на GitHub Pages...');
-    execSync(`git -C "${ROOT}" add docs/signals/latest.json docs/trades/log.json`, { stdio: 'pipe' });
+    execSync(`git -C "${ROOT}" add docs/signals/latest.json docs/trades/log.json docs/logs/analysis.log.json`, { stdio: 'pipe' });
     const ts = new Date().toISOString().slice(0, 16).replace('T', ' ');
     execSync(`git -C "${ROOT}" commit -m "signals: ${ts} UTC" --allow-empty`, { stdio: 'pipe' });
     execSync(`git -C "${ROOT}" push`, { stdio: 'inherit' });
@@ -302,11 +314,30 @@ async function main() {
     console.log(`\n━━━ ${strategy.name} (${strategy.symbol} ${strategy.timeframe}m) ━━━`);
     try {
       await ensureTradesEntry(strategy);
+      const t0           = Date.now();
       const chartData    = await getChartData(strategy.symbol, strategy.timeframe);
       const chartSummary = await formatChartData(chartData, strategy);
       const signal       = await analyzeStrategy(strategy, chartSummary);
+      const duration_ms  = Date.now() - t0;
 
       console.log(`  🎯 ${signal.signal} [${signal.confidence}] — ${signal.reasoning.slice(0, 80)}...`);
+
+      await appendLog({
+        ts:            signal.generated_at,
+        strategy_id:   strategy.id,
+        strategy_name: strategy.name,
+        symbol:        strategy.symbol,
+        timeframe:     strategy.timeframe,
+        model:         MODEL_ANALYSIS,
+        signal:        signal.signal,
+        confidence:    signal.confidence,
+        reasoning:     signal.reasoning,
+        price:         signal.price,
+        tp:            signal.tp,
+        sl:            signal.sl,
+        duration_ms,
+        chart_summary: chartSummary,
+      });
 
       const signals = await readJson(SIGNALS_PATH, { updated_at: '', strategies: {} });
       signals.strategies[strategy.id] = signal;
@@ -325,6 +356,11 @@ async function main() {
 
   console.log(`\n${'━'.repeat(50)}`);
   console.log(`✅ Готово. ${hasSignal ? '🔔 Есть сигналы!' : 'Сигналов нет.'}`);
+
+  if (WATCH_MODE) {
+    console.log(`\n⏰ Watch mode: следующий запуск через ${WATCH_INTERVAL_MS / 1000}с...`);
+    setTimeout(() => main().catch(err => console.error('❌', err.message)), WATCH_INTERVAL_MS);
+  }
 }
 
 main().catch(err => { console.error('❌', err.message); process.exit(1); });

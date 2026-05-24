@@ -124,6 +124,7 @@ body {
 /* ── Layout ───────────────────────────────────────────────── */
 .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
 
+
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
@@ -605,11 +606,10 @@ tbody td {
   display: flex;
   gap: 24px;
   align-items: flex-end;
-  margin-bottom: 24px;
-  padding: 16px;
+  margin-bottom: 0;
+  padding: 12px 24px;
   background: var(--bg-secondary);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
 }
 
@@ -848,6 +848,208 @@ tbody td {
   background: #4a9fff;
   transform: translateY(-1px);
 }
+
+/* ── Wide container ──────────────────────────────────────── */
+.container-wide {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── TradingView Chart ────────────────────────────────────── */
+.tv-chart-section {
+  margin: 0 0 0;
+  padding: 0 0 0;
+}
+
+#tv_chart_container {
+  width: 100%;
+  height: 460px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+}
+
+#tv_chart_container iframe {
+  border: none;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── New Strategy Form ────────────────────────────────────── */
+.new-strategy-form {
+  background: var(--bg-card);
+  border: 1px solid var(--accent-green);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.new-strategy-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent-green);
+  margin-bottom: 16px;
+}
+
+.ns-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.ns-field { display: flex; flex-direction: column; gap: 6px; }
+
+.ns-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Inline Strategy Editing ──────────────────────────────── */
+.mini-signal.editing {
+  border-color: var(--accent-blue);
+  background: var(--bg-hover);
+}
+
+.inline-edit-fields {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.mini-signal.editing .inline-edit-fields { display: flex; }
+.mini-signal.editing .mini-signal-view { display: none; }
+
+.inline-edit-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.inline-edit-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.inline-edit-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.btn-cancel { background: var(--bg-secondary); border-color: var(--border); font-size: 0.75rem; }
+.btn-save   { background: var(--accent-blue); border-color: var(--accent-blue); color: #fff; font-size: 0.75rem; }
+.btn-dl     { background: var(--bg-secondary); border-color: var(--accent-blue); color: var(--accent-blue); font-size: 0.75rem; }
+
+/* ── Reasoning Logs ───────────────────────────────────────── */
+.logs-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.logs-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.log-entry {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  transition: all 0.15s ease;
+}
+
+.log-entry.LONG  { border-left-color: var(--accent-green); }
+.log-entry.SHORT { border-left-color: var(--accent-red); }
+.log-entry.NO_SIGNAL { border-left-color: var(--text-muted); }
+
+.log-entry-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.log-entry-signal {
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+
+.log-entry-signal.LONG    { background: rgba(63,185,80,0.2);   color: var(--accent-green); }
+.log-entry-signal.SHORT   { background: rgba(248,81,73,0.2);   color: var(--accent-red); }
+.log-entry-signal.NO_SIGNAL { background: rgba(139,148,158,0.15); color: var(--text-muted); }
+
+.log-entry-strategy { font-size: 0.8rem; font-weight: 600; color: var(--text-primary); }
+.log-entry-symbol   { font-size: 0.75rem; color: var(--text-muted); }
+.log-entry-time     { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; }
+.log-entry-duration { font-size: 0.72rem; color: var(--text-muted); }
+
+.log-entry-reasoning {
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+.log-entry-price {
+  display: flex;
+  gap: 14px;
+  font-size: 0.78rem;
+  flex-wrap: wrap;
+}
+
+.log-price-item { display: flex; gap: 5px; }
+.log-price-label { color: var(--text-muted); }
+.log-price-value { font-weight: 600; color: var(--text-primary); }
+.log-price-value.tp { color: var(--accent-green); }
+.log-price-value.sl { color: var(--accent-red); }
+
+.log-summary-toggle {
+  background: none;
+  border: none;
+  color: var(--accent-blue);
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0;
+  margin-top: 4px;
+}
+
+.log-summary-toggle:hover { text-decoration: underline; }
+
+.log-chart-summary {
+  display: none;
+  margin-top: 8px;
+  padding: 10px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.log-chart-summary.visible { display: block; }
 
 /* ── Responsive ───────────────────────────────────────────── */
 @media (max-width: 900px) {

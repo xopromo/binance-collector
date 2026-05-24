@@ -5,6 +5,7 @@ __pycache__/
 github_token.txt
 .last_push
 logs/
+!docs/logs/
 
 # Node.js
 node_modules/
