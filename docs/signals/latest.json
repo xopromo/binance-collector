@@ -1,23 +1,23 @@
 {
-  "updated_at": "2026-05-24T00:00:00Z",
+  "updated_at": "2026-05-24T22:30:17.991Z",
   "strategies": {
     "strategy_001": {
       "signal": "NO_SIGNAL",
-      "price": 0,
-      "reasoning": "Ожидание данных...",
       "confidence": "LOW",
+      "reasoning": "Ошибка: Claude CLI ошибка (claude-sonnet-4-6): spawnSync claude ENOENT",
+      "price": 0,
       "tp": 0,
       "sl": 0,
-      "generated_at": "2026-05-24T00:00:00Z"
+      "generated_at": "2026-05-24T22:30:17.986Z"
     },
     "strategy_002": {
       "signal": "NO_SIGNAL",
-      "price": 0,
-      "reasoning": "Ожидание данных...",
       "confidence": "LOW",
+      "reasoning": "Ошибка: Claude CLI ошибка (claude-sonnet-4-6): spawnSync claude ENOENT",
+      "price": 0,
       "tp": 0,
       "sl": 0,
-      "generated_at": "2026-05-24T00:00:00Z"
+      "generated_at": "2026-05-24T22:30:17.990Z"
     }
   }
 }
