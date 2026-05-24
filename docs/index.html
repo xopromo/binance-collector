@@ -247,12 +247,16 @@
 
     <div class="modal-footer">
       <button id="cancelEditBtn" class="btn" style="background: var(--bg-card);">Отменить</button>
-      <button id="saveEditBtn" class="btn active">Сохранить изменения</button>
+      <button id="downloadJsonBtn" class="btn" style="background: var(--bg-card); color: var(--accent-blue);">📥 Скачать JSON</button>
+      <button id="saveEditBtn" class="btn active">Сохранить локально</button>
     </div>
 
     <div class="modal-note">
-      <strong>ℹ️ Примечание:</strong> Изменения сохраняются локально в браузере (localStorage).
-      Чтобы сохранить в репозитории, отредактируйте файл <code>strategies/strategy_XXX.json</code>
+      <strong>ℹ️ Как применить изменения к анализу:</strong><br>
+      1. Нажми <strong>📥 Скачать JSON</strong><br>
+      2. Замени файл <code>strategies/strategy_XXX.json</code> в репозитории скачанным файлом<br>
+      3. Запусти <code>npm run analyze</code> — стратегия обновится<br>
+      <span style="color:var(--text-muted)">«Сохранить локально» — сохраняет только в этом браузере для отображения на дашборде.</span>
     </div>
   </div>
 </div>

@@ -4,6 +4,7 @@
  */
 
 let currentEditingStrategyId = null;
+let currentStrategyBaseData = null;
 
 // ── Modal Elements ────────────────────────────────────────────────────────────
 const editorModal = document.getElementById('editorModal');
@@ -27,6 +28,7 @@ const editorTitle = document.getElementById('editorTitle');
 // ── Modal Controls ────────────────────────────────────────────────────────────
 export function openStrategyEditor(strategyId, strategyData) {
   currentEditingStrategyId = strategyId;
+  currentStrategyBaseData = strategyData;
 
   // Load overrides from localStorage
   const overrides = getStrategyOverrides(strategyId);
@@ -55,10 +57,47 @@ function closeStrategyEditor() {
   strategyEditorForm.reset();
 }
 
+function downloadStrategyJson() {
+  if (!currentEditingStrategyId || !currentStrategyBaseData) return;
+
+  const base = currentStrategyBaseData;
+  const tfRaw = editorTimeframe.value.replace('м', '').trim();
+  const timeframe = parseInt(tfRaw, 10) || base.timeframe || 1;
+
+  const strategyJson = {
+    id:             currentEditingStrategyId,
+    name:           editorName.value || base.name || '',
+    enabled:        base.enabled !== undefined ? base.enabled : true,
+    symbol:         editorSymbol.value || base.symbol || '',
+    timeframe,
+    risk_per_trade: base.risk_per_trade !== undefined ? base.risk_per_trade : 1,
+    tp_percent:     editorTpPercent.value !== '' ? parseFloat(editorTpPercent.value) : (base.tp_percent || 2.5),
+    sl_percent:     editorSlPercent.value !== '' ? parseFloat(editorSlPercent.value) : (base.sl_percent || 1.0),
+    description:    editorDescription.value || '',
+    entry_conditions: editorEntryConditions.value || '',
+    exit_conditions:  editorExitConditions.value || '',
+  };
+
+  if (base.notes) strategyJson.notes = base.notes;
+  if (base.ai_model) strategyJson.ai_model = base.ai_model;
+
+  const blob = new Blob([JSON.stringify(strategyJson, null, 2) + '\n'], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${currentEditingStrategyId}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showToast(`Скачан ${currentEditingStrategyId}.json — сохрани в папку strategies/`, 'success');
+}
+
 // ── Event Listeners ───────────────────────────────────────────────────────────
 closeModalBtn.addEventListener('click', closeStrategyEditor);
 cancelEditBtn.addEventListener('click', closeStrategyEditor);
 modalOverlay.addEventListener('click', closeStrategyEditor);
+
+document.getElementById('downloadJsonBtn')?.addEventListener('click', downloadStrategyJson);
 
 // Prevent closing when clicking inside modal content
 document.querySelector('.modal-content')?.addEventListener('click', (e) => {
