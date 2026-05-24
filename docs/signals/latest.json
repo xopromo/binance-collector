@@ -1,23 +1,23 @@
 {
-  "updated_at": "2026-05-24T22:30:17.991Z",
+  "updated_at": "2026-05-24T22:33:34.049Z",
   "strategies": {
     "strategy_001": {
       "signal": "NO_SIGNAL",
       "confidence": "LOW",
-      "reasoning": "Ошибка: Claude CLI ошибка (claude-sonnet-4-6): spawnSync claude ENOENT",
+      "reasoning": "Ошибка: Claude CLI ошибка (claude-sonnet-4-6): spawnSync claude.cmd EINVAL",
       "price": 0,
       "tp": 0,
       "sl": 0,
-      "generated_at": "2026-05-24T22:30:17.986Z"
+      "generated_at": "2026-05-24T22:33:19.375Z"
     },
     "strategy_002": {
       "signal": "NO_SIGNAL",
       "confidence": "LOW",
-      "reasoning": "Ошибка: Claude CLI ошибка (claude-sonnet-4-6): spawnSync claude ENOENT",
+      "reasoning": "Ошибка: Claude CLI ошибка (claude-sonnet-4-6): spawnSync claude.cmd EINVAL",
       "price": 0,
       "tp": 0,
       "sl": 0,
-      "generated_at": "2026-05-24T22:30:17.990Z"
+      "generated_at": "2026-05-24T22:33:34.048Z"
     }
   }
 }
