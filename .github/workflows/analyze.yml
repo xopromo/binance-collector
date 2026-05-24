@@ -1,0 +1,66 @@
+name: Run Strategy Analysis
+
+on:
+  schedule:
+    # Каждые 15 минут
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      strategy:
+        description: 'ID стратегии (оставьте пустым для всех)'
+        required: false
+        default: ''
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run analysis (all strategies)
+        if: ${{ !inputs.strategy }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DRY_RUN: '1'
+        run: node scripts/run_analysis.js
+        # NOTE: DRY_RUN=1 because TradingView Desktop is not available in CI.
+        # In production, run this locally where TradingView is open.
+        # Remove DRY_RUN to enable git push from CI (set ANTHROPIC_API_KEY in repo secrets).
+        continue-on-error: true
+
+      - name: Run analysis (single strategy)
+        if: ${{ inputs.strategy != '' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DRY_RUN: '1'
+        run: node scripts/run_analysis.js --strategy ${{ inputs.strategy }}
+        continue-on-error: true
+
+      - name: Commit and push signals
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/signals/latest.json docs/trades/log.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "Нет изменений для коммита"
+          else
+            git commit -m "signals: $(date -u '+%Y-%m-%d %H:%M') UTC"
+            git pull --rebase origin HEAD 2>/dev/null || true
+            git push origin HEAD
+          fi

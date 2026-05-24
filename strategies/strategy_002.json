@@ -1,0 +1,15 @@
+{
+  "id": "strategy_002",
+  "name": "MACD + Bollinger Bands",
+  "enabled": true,
+  "symbol": "BINANCE:BTCUSDT.P",
+  "timeframe": "5",
+  "risk_per_trade": 0.5,
+  "tp_percent": 1.5,
+  "sl_percent": 0.75,
+  "ai_model": "claude-sonnet-4-6",
+  "description": "Вход LONG при пересечении MACD снизу вверх и цене у нижней полосы Боллинджера. Вход SHORT при пересечении MACD сверху вниз и цене у верхней полосы.",
+  "entry_conditions": "Анализируй MACD (12,26,9) и Bollinger Bands (20,2). Сигнал LONG если MACD пересекает Signal снизу вверх И цена < нижней BB. Сигнал SHORT если MACD пересекает Signal сверху вниз И цена > верхней BB. Иначе NO_SIGNAL.",
+  "exit_conditions": "Выход при достижении TP или SL, или когда цена пересекает среднюю BB.",
+  "notes": "Стратегия для торговли BTCUSDT на 5-минутном таймфрейме"
+}

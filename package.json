@@ -1,0 +1,17 @@
+{
+  "name": "trading-dashboard",
+  "version": "1.0.0",
+  "description": "Multi-strategy trading dashboard with TradingView MCP and Claude AI analysis",
+  "type": "module",
+  "scripts": {
+    "analyze": "node scripts/run_analysis.js",
+    "analyze:strategy": "node scripts/run_analysis.js --strategy",
+    "collect": "node scripts/collect_data.js",
+    "push": "node scripts/push_results.js",
+    "push:all": "node scripts/push_results.js --all"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.40.0",
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  }
+}

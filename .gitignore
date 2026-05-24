@@ -5,3 +5,15 @@ __pycache__/
 github_token.txt
 .last_push
 logs/
+
+# Node.js
+node_modules/
+.env
+.env.local
+npm-debug.log*
+
+# Editor
+.vscode/
+*.swp
+*.swo
+

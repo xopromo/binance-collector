@@ -1,0 +1,15 @@
+{
+  "id": "strategy_001",
+  "name": "RSI + EMA Стратегия",
+  "enabled": true,
+  "symbol": "BINANCE:LYNUSDT.P",
+  "timeframe": "1",
+  "risk_per_trade": 1.0,
+  "tp_percent": 2.0,
+  "sl_percent": 1.0,
+  "ai_model": "claude-sonnet-4-6",
+  "description": "Вход LONG когда RSI < 30 и цена выше EMA200. Вход SHORT когда RSI > 70 и цена ниже EMA200.",
+  "entry_conditions": "Анализируй текущий RSI и EMA200. Сигнал LONG если RSI < 30 И цена > EMA200. Сигнал SHORT если RSI > 70 И цена < EMA200. Иначе NO_SIGNAL.",
+  "exit_conditions": "Выход при достижении TP или SL, или когда RSI пересекает уровень 50.",
+  "notes": "Тестовая стратегия на M1 для более частых сигналов"
+}

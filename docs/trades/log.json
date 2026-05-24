@@ -1,0 +1,34 @@
+{
+  "strategies": {
+    "strategy_001": {
+      "name": "RSI + EMA Стратегия",
+      "symbol": "BINANCE:LYNUSDT.P",
+      "timeframe": "1",
+      "trades": [],
+      "stats": {
+        "total_trades": 0,
+        "winning_trades": 0,
+        "losing_trades": 0,
+        "win_rate": 0,
+        "total_pnl_percent": 0,
+        "max_drawdown": 0,
+        "sharpe_ratio": 0
+      }
+    },
+    "strategy_002": {
+      "name": "MACD + Bollinger Bands",
+      "symbol": "BINANCE:BTCUSDT.P",
+      "timeframe": "5",
+      "trades": [],
+      "stats": {
+        "total_trades": 0,
+        "winning_trades": 0,
+        "losing_trades": 0,
+        "win_rate": 0,
+        "total_pnl_percent": 0,
+        "max_drawdown": 0,
+        "sharpe_ratio": 0
+      }
+    }
+  }
+}
