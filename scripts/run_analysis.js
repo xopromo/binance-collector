@@ -38,6 +38,9 @@ const DRY_RUN = process.env.DRY_RUN === '1';
 const MODEL_FORMATTER = 'claude-haiku-4-5-20251001';  // дешёвый — для обработки данных
 const MODEL_ANALYSIS  = 'claude-sonnet-4-6';           // мощный — для торговых решений
 
+// На Windows npm global устанавливает claude.cmd, а не claude
+const CLAUDE_BIN = process.platform === 'win32' ? 'claude.cmd' : 'claude';
+
 // ── Пути ──────────────────────────────────────────────────────────────────────
 const STRATEGIES_DIR = path.join(ROOT, 'strategies');
 const SIGNALS_PATH   = path.join(ROOT, 'docs', 'signals', 'latest.json');
@@ -46,7 +49,7 @@ const TRADES_PATH    = path.join(ROOT, 'docs', 'trades', 'log.json');
 // ── Вызов Claude Code CLI ─────────────────────────────────────────────────────
 function callClaude(prompt, model) {
   try {
-    const result = execFileSync('claude', [
+    const result = execFileSync(CLAUDE_BIN, [
       '--model', model,
       '-p', prompt,
       '--output-format', 'text',
@@ -275,7 +278,7 @@ async function main() {
 
   // Проверка Claude CLI
   try {
-    execSync('claude --version', { stdio: 'pipe' });
+    execSync(`${CLAUDE_BIN} --version`, { stdio: 'pipe' });
   } catch (_) {
     console.error('❌ claude CLI не найден. Установи: npm install -g @anthropic-ai/claude-code');
     process.exit(1);
