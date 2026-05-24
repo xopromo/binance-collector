@@ -864,16 +864,13 @@ tbody td {
 
 #tv_chart_container {
   width: 100%;
-  height: 460px;
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border);
+  overflow: hidden;
 }
 
-#tv_chart_container iframe {
-  border: none;
-  width: 100%;
-  height: 100%;
-}
+#tv_chart_container > div { display: block; }
+#tv_chart_container iframe { border: none; }
 
 /* ── New Strategy Form ────────────────────────────────────── */
 .new-strategy-form {

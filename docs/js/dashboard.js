@@ -443,26 +443,26 @@ function updateTradingViewChart() {
   const container = document.getElementById('tv_chart_container');
   if (!container) return;
 
-  // Map symbol: use selectedSymbol or first strategy symbol
+  const H = 460;
+
   let sym = selectedSymbol;
   if (!sym) {
     const ids = Object.keys(strategies);
-    if (ids.length > 0) sym = strategies[ids[0]].symbol || 'BINANCE:BTCUSDT.P';
-    else sym = 'BINANCE:BTCUSDT.P';
+    sym = ids.length > 0 ? (strategies[ids[0]].symbol || 'BINANCE:BTCUSDT.P') : 'BINANCE:BTCUSDT.P';
   }
 
-  // Map TF: 1440 → "D", rest as-is
   const interval = selectedTimeframe === '1440' ? 'D'
                  : selectedTimeframe === '240'  ? '240'
                  : selectedTimeframe || '1';
 
-  container.innerHTML = `<div id="tv_widget_${Date.now()}"></div>`;
-  const newId = container.querySelector('div').id;
+  const uid = 'tv_' + Date.now();
+  container.innerHTML = `<div id="${uid}" style="width:100%;height:${H}px"></div>`;
 
   const doInit = () => {
     if (!window.TradingView) { setTimeout(doInit, 300); return; }
     new window.TradingView.widget({
-      autosize:          true,
+      width:             '100%',
+      height:            H,
       symbol:            sym,
       interval,
       timezone:          'Etc/UTC',
@@ -474,7 +474,7 @@ function updateTradingViewChart() {
       hide_top_toolbar:  false,
       hide_legend:       false,
       save_image:        false,
-      container_id:      newId,
+      container_id:      uid,
     });
   };
   doInit();
