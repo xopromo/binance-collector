@@ -18,7 +18,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { execSync, execFileSync } from 'child_process';
+import { execSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -49,18 +49,20 @@ const TRADES_PATH    = path.join(ROOT, 'docs', 'trades', 'log.json');
 // ── Вызов Claude Code CLI ─────────────────────────────────────────────────────
 function callClaude(prompt, model) {
   try {
-    const result = execFileSync(CLAUDE_BIN, [
-      '--model', model,
-      '-p', prompt,
-      '--output-format', 'text',
-    ], {
-      encoding: 'utf-8',
-      timeout: 60000,
-      maxBuffer: 1024 * 1024,
-    });
+    // Передаём промпт через stdin чтобы избежать проблем с экранированием на Windows
+    const result = execSync(
+      `${CLAUDE_BIN} --model ${model} -p --output-format text`,
+      {
+        input: prompt,
+        encoding: 'utf-8',
+        timeout: 120000,
+        maxBuffer: 2 * 1024 * 1024,
+        shell: true,
+      }
+    );
     return result.trim();
   } catch (err) {
-    const msg = err.stdout?.trim() || err.message;
+    const msg = err.stdout?.trim() || err.stderr?.trim() || err.message;
     throw new Error(`Claude CLI ошибка (${model}): ${msg}`);
   }
 }
