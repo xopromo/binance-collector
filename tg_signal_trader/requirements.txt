@@ -1,0 +1,17 @@
+# Telegram client
+telethon>=1.36.0
+
+# Claude API (vision + signal extraction)
+anthropic>=0.40.0
+
+# Groq Whisper (audio/video transcription)
+groq>=0.11.0
+
+# Bybit trading API
+pybit>=5.6.0
+
+# Env vars
+python-dotenv>=1.0.0
+
+# ffmpeg Python wrapper (ffmpeg binary must be installed separately)
+ffmpeg-python>=0.2.0
